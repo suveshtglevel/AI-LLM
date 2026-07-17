@@ -12,8 +12,8 @@ ProviderRegistry.register({
 });
 
 export class GeminiProvider extends BaseProvider {
-  constructor() {
-    super('Gemini', env.GEMINI_API_KEY, 'https://generativelanguage.googleapis.com/v1beta');
+  constructor(apiKey?: string) {
+    super('Gemini', apiKey || env.GEMINI_API_KEY, 'https://generativelanguage.googleapis.com/v1beta');
   }
 
   async generate(prompt: string, options?: ProviderOptions): Promise<string> {

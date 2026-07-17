@@ -1,1 +1,165 @@
 @import "tailwindcss";
+
+/* ==================== Theme Variables ==================== */
+:root {
+  /* Tailwind v4 core color tokens - override for dark theme */
+  --color-white: #ffffff;
+  --color-black: #0a0a0f;
+  --color-gray-900: #12121a;
+
+  /* Custom theme variables */
+  --color-surface: rgba(255, 255, 255, 0.03);
+  --color-surface-hover: rgba(255, 255, 255, 0.06);
+  --color-surface-glass: rgba(255, 255, 255, 0.02);
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-hover: rgba(255, 255, 255, 0.12);
+  --color-text-muted: rgba(255, 255, 255, 0.5);
+  --color-text-more-muted: rgba(255, 255, 255, 0.3);
+
+  /* Accent colors */
+  --color-accent-blue: #3b82f6;
+  --color-accent-purple: #8b5cf6;
+  --color-accent-green: #22c55e;
+  --color-accent-red: #ef4444;
+  --color-accent-yellow: #f59e0b;
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.08);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.15);
+
+  /* Selection */
+  --selection-bg: rgba(59, 130, 246, 0.3);
+  --selection-color: #ffffff;
+
+  /* Shimmer */
+  --shimmer-from: rgba(255, 255, 255, 0.03);
+  --shimmer-mid: rgba(255, 255, 255, 0.06);
+  --shimmer-to: rgba(255, 255, 255, 0.03);
+
+  /* Chart colors */
+  --chart-grid: rgba(255, 255, 255, 0.03);
+  --chart-axis: rgba(255, 255, 255, 0.05);
+  --chart-tick: rgba(255, 255, 255, 0.3);
+}
+
+/* ==================== Light Theme Overrides ==================== */
+.light {
+  --color-white: #0a0a0f;
+  --color-black: #f8f8fc;
+  --color-gray-900: #ffffff;
+
+  --color-surface: rgba(0, 0, 0, 0.03);
+  --color-surface-hover: rgba(0, 0, 0, 0.06);
+  --color-surface-glass: rgba(0, 0, 0, 0.02);
+  --color-border: rgba(0, 0, 0, 0.06);
+  --color-border-hover: rgba(0, 0, 0, 0.12);
+  --color-text-muted: rgba(0, 0, 0, 0.5);
+  --color-text-more-muted: rgba(0, 0, 0, 0.3);
+
+  --scrollbar-thumb: rgba(0, 0, 0, 0.08);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.15);
+
+  --selection-bg: rgba(59, 130, 246, 0.2);
+  --selection-color: #0a0a0f;
+
+  --shimmer-from: rgba(0, 0, 0, 0.03);
+  --shimmer-mid: rgba(0, 0, 0, 0.06);
+  --shimmer-to: rgba(0, 0, 0, 0.03);
+
+  --chart-grid: rgba(0, 0, 0, 0.05);
+  --chart-axis: rgba(0, 0, 0, 0.08);
+  --chart-tick: rgba(0, 0, 0, 0.3);
+}
+
+/* ==================== Theme-aware Utility Classes ==================== */
+.bg-surface { background-color: var(--color-surface); }
+.bg-surface-hover { background-color: var(--color-surface-hover); }
+.bg-surface-glass { background-color: var(--color-surface-glass); }
+.border-theme { border-color: var(--color-border); }
+.text-muted { color: var(--color-text-muted); }
+.text-more-muted { color: var(--color-text-more-muted); }
+
+/* Glassmorphism utility */
+.glass-surface {
+  background-color: var(--color-surface-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-border);
+}
+
+/* ==================== Base Styles ==================== */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-black);
+  color: var(--color-white);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ==================== Scrollbar ==================== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* ==================== Selection ==================== */
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-color);
+}
+
+/* ==================== Animations ==================== */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--shimmer-from) 25%,
+    var(--shimmer-mid) 50%,
+    var(--shimmer-to) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* ==================== Focus Ring ==================== */
+*:focus-visible {
+  outline: 2px solid var(--color-accent-blue);
+  outline-offset: 2px;
+}
+
+/* ==================== Input Autofill ==================== */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-white);
+  -webkit-box-shadow: 0 0 0px 1000px var(--color-surface) inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ==================== Light mode glass overrides ==================== */
+.light .glass-surface {
+  border-color: var(--color-border);
+}

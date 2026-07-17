@@ -21,6 +21,7 @@ import analyticsRoutes from './features/analytics/analytics.routes';
 import systemRoutes from './features/system/system.routes';
 import toolsRoutes from './features/system/tools.routes';
 import providersRoutes from './features/system/providers.routes';
+import { providerRoutes } from './features/providers';
 import workflowsRoutes from './features/system/workflows.routes';
 
 const app = express();
@@ -72,6 +73,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/tools', toolsRoutes);
 app.use('/api/providers', providersRoutes);
+app.use('/api/providers', providerRoutes);
 app.use('/api/workflows', workflowsRoutes);
 
 // ==================== Error Handler ====================

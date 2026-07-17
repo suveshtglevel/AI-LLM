@@ -12,8 +12,8 @@ ProviderRegistry.register({
 });
 
 export class OpenAIProvider extends BaseProvider {
-  constructor() {
-    super('OpenAI', env.OPENAI_API_KEY, 'https://api.openai.com/v1');
+  constructor(apiKey?: string) {
+    super('OpenAI', apiKey || env.OPENAI_API_KEY, 'https://api.openai.com/v1');
   }
 
   async generate(prompt: string, options?: ProviderOptions): Promise<string> {
