@@ -1,0 +1,221 @@
+import { logger } from '../../config/logger';
+import { Project } from '../projects/project.model';
+import { Task } from '../projects/task.model';
+import { ActivityLog } from '../employees/employee.model';
+import { QueueRegistry } from '../../registries/queue.registry';
+import { EventBus, TaskEvent } from '../../services/event-bus';
+import { Approval } from '../approvals/approval.model';
+import { SkillMatcher, TaskSkillRequirement } from '../../services/skill-matcher';
+
+export class Manager {
+  /**
+   * Process the planning output: take subtasks from the Planning Employee
+   * and create+queue individual tasks for other employees.
+   */
+  static async processPlan(taskId: string, projectId: string, userId: string, planOutput: any): Promise<void> {
+    logger.info(`[Manager] Processing plan for project ${projectId}`);
+
+    const subtasks = planOutput.subtasks || planOutput.estimatedFlow || [];
+    const useSkillRouting = planOutput.useSkillRouting === true;
+    const createdTasks: string[] = [];
+
+    for (let i = 0; i < subtasks.length; i++) {
+      const sub = subtasks[i];
+      const employeeType = sub.assignedEmployee || sub.employee || 'research';
+
+      // Check dependencies are resolved
+      const depIndices: number[] = sub.dependsOn || sub.dependencies || [];
+      const depsResolved = depIndices.every((idx: number) => {
+        const depTaskId = createdTasks[idx];
+        return depTaskId !== undefined;
+      });
+
+      let assignedEmployee = employeeType;
+
+      // Use skill-based routing if enabled
+      if (useSkillRouting) {
+        const requiredSkills = sub.requiredSkills || sub.skills || [];
+        const skillReq: TaskSkillRequirement = {
+          preferredType: employeeType,
+          requiredSkills: requiredSkills.length > 0 ? requiredSkills : [employeeType],
+          department: sub.department,
+        };
+
+        const result = await SkillMatcher.assignTask(projectId, userId, skillReq);
+        assignedEmployee = result.employeeType;
+      }
+
+      const task = await Task.create({
+        projectId,
+        userId,
+        assignedEmployee,
+        title: sub.task || sub.title || `Task ${i + 1}`,
+        description: sub.description || '',
+        input: { ...sub, goal: planOutput.goal },
+        status: 'QUEUED',
+        priority: sub.priority || 'MEDIUM',
+        order: i,
+        dependencies: depIndices.map((idx: number) => createdTasks[idx]).filter(Boolean),
+      });
+
+      createdTasks.push(task.id.toString());
+
+      // Queue the task for the employee
+      const queue = QueueRegistry.getQueue(assignedEmployee);
+      if (queue) {
+        await queue.add('task', {
+          taskId: task.id.toString(),
+          projectId,
+          userId,
+          title: task.title,
+          description: task.description,
+          input: task.input,
+        });
+
+        await Task.findByIdAndUpdate(task._id, { status: 'QUEUED' });
+        logger.info(`[Manager] Queued ${assignedEmployee} task: ${task._id}`);
+      } else {
+        logger.warn(`[Manager] No queue for employee type: ${assignedEmployee}`);
+      }
+    }
+
+    // Update project with all task IDs
+    await Project.findByIdAndUpdate(projectId, { $push: { tasks: { $each: createdTasks } }, progress: 10 });
+
+    await ActivityLog.create({
+      userId,
+      projectId,
+      employeeType: 'manager',
+      action: 'plan_processed',
+      status: 'completed',
+      duration: 0,
+      metadata: { taskCount: createdTasks.length, taskIds: createdTasks },
+    });
+  }
+
+  /**
+   * Handle task completion: update dependencies, queue next tasks, check project completion.
+   */
+  static async onTaskCompleted(taskId: string, projectId: string): Promise<void> {
+    logger.info(`[Manager] Task completed: ${taskId} in project ${projectId}`);
+
+    // Get the task for metadata
+    const completedTask = await Task.findById(taskId);
+    const employeeType = completedTask?.assignedEmployee || 'unknown';
+    const userId = completedTask?.userId || 'unknown';
+
+    // Update the task
+    await Task.findByIdAndUpdate(taskId, { status: 'COMPLETED', completedAt: new Date() });
+
+    // Publish event
+    await EventBus.publish(TaskEvent.TASK_COMPLETED, {
+      taskId,
+      projectId,
+      userId,
+      employeeType,
+      metadata: completedTask ? { title: completedTask.title } : undefined,
+    });
+
+    // Check for next tasks whose dependencies are now all met
+    const allProjectTasks = await Task.find({ projectId }).sort({ order: 1 }).exec();
+    const completedCount = allProjectTasks.filter(t => t.status === 'COMPLETED').length;
+
+    for (const task of allProjectTasks) {
+      if (task.status !== 'QUEUED' && task.status !== 'PENDING') continue;
+
+      // Check if approval is required and still pending
+      if (task.status === 'PENDING') {
+        const pendingApproval = await Approval.findOne({
+          taskId: task._id.toString(),
+          status: 'pending',
+        }).exec();
+
+        if (pendingApproval) {
+          // Skip this task — waiting for user approval
+          logger.debug(`[Manager] Task ${task._id} waiting for approval`);
+          continue;
+        }
+      }
+
+      // Check all dependencies are completed
+      const depsMet = task.dependencies.every(depId => {
+        const depTask = allProjectTasks.find(t => t.id === depId || t._id.toString() === depId);
+        return depTask && depTask.status === 'COMPLETED';
+      });
+
+      if (depsMet) {
+        const queue = QueueRegistry.getQueue(task.assignedEmployee);
+        if (queue) {
+          await queue.add('task', {
+            taskId: task._id.toString(),
+            projectId,
+            userId: task.userId,
+            title: task.title,
+            description: task.description,
+            input: task.input,
+          });
+          await Task.findByIdAndUpdate(task._id, { status: 'QUEUED' });
+        }
+      }
+    }
+
+    // Check if project is complete
+    const total = allProjectTasks.length;
+    const progress = total > 0 ? Math.round((completedCount / total) * 100) : 100;
+    const isComplete = completedCount === total;
+
+    await Project.findByIdAndUpdate(projectId, {
+      progress,
+      ...(isComplete ? { status: 'COMPLETED' } : {}),
+    });
+
+    if (isComplete) {
+      await EventBus.publish(TaskEvent.WORKFLOW_COMPLETED, {
+        taskId: projectId,
+        projectId,
+        userId,
+        employeeType: 'manager',
+        metadata: { totalTasks: total, completedTasks: completedCount },
+      });
+      logger.info(`[Manager] Project ${projectId} completed!`);
+    }
+  }
+
+  /**
+   * Handle task failure: mark project as failed if critical.
+   */
+  static async onTaskFailed(taskId: string, projectId: string, error: string): Promise<void> {
+    logger.error(`[Manager] Task failed: ${taskId} in project ${projectId}: ${error}`);
+
+    const task = await Task.findById(taskId);
+    const employeeType = task?.assignedEmployee || 'unknown';
+    const userId = task?.userId || 'unknown';
+
+    await Task.findByIdAndUpdate(taskId, { status: 'FAILED', error });
+
+    // Publish event
+    await EventBus.publish(TaskEvent.TASK_FAILED, {
+      taskId,
+      projectId,
+      userId,
+      employeeType,
+      metadata: { error },
+    });
+
+    const project = await Project.findById(projectId);
+    if (project) {
+      const failedTasks = await Task.countDocuments({ projectId, status: 'FAILED' }).exec();
+      if (failedTasks >= 2) {
+        await Project.findByIdAndUpdate(projectId, { status: 'FAILED' });
+        await EventBus.publish(TaskEvent.WORKFLOW_FAILED, {
+          taskId: projectId,
+          projectId,
+          userId,
+          employeeType: 'manager',
+          metadata: { failedCount: failedTasks, error },
+        });
+        logger.warn(`[Manager] Project ${projectId} failed due to multiple task failures`);
+      }
+    }
+  }
+}
