@@ -1,0 +1,1287 @@
+{
+  "info": {
+    "name": "AIOS - AI Operating System API",
+    "description": "Complete API collection for the AI Operating System (AIOS).\n\n## Authentication\nMost endpoints require a Bearer JWT token. Register a user first, then login to get tokens.\nSet the `token` variable at the collection level after login.\n\n## Base URL\nDefault: `http://localhost:3000`\n\n## Workflow Types\nAvailable workflow types for CEO delegation:\n- `youtube-video` — 9-step: Research → Plan → Write → Review (approval) → Voice → Image → Video → Edit → Publish (approval)\n- `podcast` — 5-step: Research → Write → Review (approval) → Voice → Publish (approval)\n- `blog-post` — 5-step: Research → Write → Review → Image → Publish (approval)\n\n## Employee Types\nresearch, planning, writer, reviewer, voice, image, video, editor, publisher, analytics, memory\n\n## Departments\nresearch, content, media, publishing, analytics, memory, management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "projectId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "taskId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "approvalId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "jobId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🏥 Health Check",
+      "item": [
+        {
+          "name": "GET Health Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response has success true', function() {",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json.success).to.eq(true);",
+                  "  pm.expect(json.data.status).to.eq('healthy');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Check if the server is running. No authentication required."
+          },
+          "response": [
+            {
+              "name": "Healthy Response",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"healthy\",\n    \"timestamp\": \"2026-07-17T12:00:00.000Z\",\n    \"uptime\": 123.45\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔐 Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function() {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Response has user data', function() {",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json.success).to.eq(true);",
+                  "  pm.expect(json.data.user).to.have.property('id');",
+                  "  pm.expect(json.data.user).to.have.property('email');",
+                  "  pm.expect(json.data.user).to.have.property('name');",
+                  "  pm.expect(json.data).to.have.property('accessToken');",
+                  "  pm.expect(json.data).to.have.property('refreshToken');",
+                  "  pm.collectionVariables.set('token', json.data.accessToken);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Test User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a new user account. Returns JWT access token and refresh token.\nAuto-sets the `token` variable on success."
+          },
+          "response": [
+            {
+              "name": "Registration Success",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"user\": {\n      \"id\": \"507f1f77bcf86cd799439011\",\n      \"email\": \"user@example.com\",\n      \"name\": \"Test User\",\n      \"role\": \"user\",\n      \"createdAt\": \"2026-07-17T12:00:00.000Z\"\n    },\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIs...\",\n    \"refreshToken\": \"eyJhbGciOiJIUzI1NiIs...\",\n    \"expiresIn\": 900\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response has tokens', function() {",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json.success).to.eq(true);",
+                  "  pm.expect(json.data).to.have.property('accessToken');",
+                  "  pm.expect(json.data).to.have.property('refreshToken');",
+                  "  pm.collectionVariables.set('token', json.data.accessToken);",
+                  "  pm.collectionVariables.set('userId', json.data.user.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login with email and password. Returns JWT access token and refresh token.\nAuto-sets the `token` variable on success."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Get a new access token using a refresh token."
+          }
+        },
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Get the currently authenticated user's profile."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🧑‍💼 CEO & Projects",
+      "item": [
+        {
+          "name": "Delegate Goal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function() {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Response has project data', function() {",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json.success).to.eq(true);",
+                  "  pm.expect(json.data).to.have.property('project');",
+                  "  pm.expect(json.data.project).to.have.property('_id');",
+                  "  pm.collectionVariables.set('projectId', json.data.project._id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"AI in Healthcare Research\",\n  \"goal\": \"Research the latest AI advancements in healthcare and create a comprehensive YouTube video about it\",\n  \"description\": \"Cover topics: medical imaging AI, drug discovery, and patient care automation\",\n  \"workflowType\": \"youtube-video\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ceo/delegate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ceo", "delegate"]
+            },
+            "description": "Submit a goal to the CEO AI. The CEO detects the workflow type automatically or use `workflowType` to specify.\n\nAuto-sets the `projectId` variable on success.\n\n**Workflow Types:**\n- `youtube-video` — Full YouTube content pipeline\n- `podcast` — Audio podcast creation\n- `blog-post` — Blog post with images\n- *(omit for auto-detection)*"
+          },
+          "response": [
+            {
+              "name": "YouTube Workflow Created",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"project\": {\n      \"_id\": \"507f1f77bcf86cd799439011\",\n      \"userId\": \"507f1f77bcf86cd799439010\",\n      \"title\": \"AI in Healthcare Research\",\n      \"goal\": \"Research the latest AI advancements in healthcare...\",\n      \"workflowType\": \"youtube-video\",\n      \"status\": \"IN_PROGRESS\",\n      \"createdAt\": \"2026-07-17T12:00:00.000Z\"\n    },\n    \"tasks\": [\n      { \"_id\": \"task1\", \"employeeType\": \"research\", \"status\": \"QUEUED\", \"order\": 0 },\n      { \"_id\": \"task2\", \"employeeType\": \"planning\", \"status\": \"QUEUED\", \"order\": 1 }\n    ],\n    \"message\": \"Workflow 'youtube-video' started with 9 steps\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delegate Goal - Blog Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Top 10 AI Tools in 2026\",\n  \"goal\": \"Write a comprehensive blog post about the top 10 AI tools available in 2026\",\n  \"description\": \"Include tools for developers, designers, and content creators\",\n  \"workflowType\": \"blog-post\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ceo/delegate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ceo", "delegate"]
+            },
+            "description": "Alternative example using the blog-post workflow."
+          }
+        },
+        {
+          "name": "Delegate Goal - Podcast",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Future of Quantum Computing\",\n  \"goal\": \"Create a podcast episode about the future of quantum computing and its impact\",\n  \"description\": \"Technical but accessible to general audience\",\n  \"workflowType\": \"podcast\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ceo/delegate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ceo", "delegate"]
+            },
+            "description": "Alternative example using the podcast workflow."
+          }
+        },
+        {
+          "name": "Get Project Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ceo/status/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ceo", "status", "{{projectId}}"]
+            },
+            "description": "Get the full status of a project including all tasks, their statuses, and the workflow progress."
+          }
+        },
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            },
+            "description": "List all projects for the current user. Supports pagination and status filtering."
+          }
+        },
+        {
+          "name": "List Projects (with filters)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects?page=1&limit=10&status=IN_PROGRESS",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "status", "value": "IN_PROGRESS" }
+              ]
+            },
+            "description": "List projects with pagination and status filter.\n\n**Status values:** PENDING, IN_PROGRESS, COMPLETED, FAILED"
+          }
+        },
+        {
+          "name": "Get Project Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{projectId}}"]
+            },
+            "description": "Get detailed information about a specific project."
+          }
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{projectId}}"]
+            },
+            "description": "Delete a project and its associated data."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📋 Tasks",
+      "item": [
+        {
+          "name": "List Tasks",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks"]
+            },
+            "description": "List all tasks for the current user."
+          }
+        },
+        {
+          "name": "List Tasks (filtered by project)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?projectId={{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks"],
+              "query": [
+                { "key": "projectId", "value": "{{projectId}}" }
+              ]
+            },
+            "description": "List tasks filtered by project ID."
+          }
+        },
+        {
+          "name": "List Tasks (filtered by status)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?status=COMPLETED",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks"],
+              "query": [
+                { "key": "status", "value": "COMPLETED" }
+              ]
+            },
+            "description": "List tasks filtered by status.\n\n**Status values:** PENDING, QUEUED, IN_PROGRESS, COMPLETED, FAILED"
+          }
+        },
+        {
+          "name": "Get Task Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks", "{{taskId}}"]
+            },
+            "description": "Get detailed information about a specific task."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔬 Research (Legacy)",
+      "item": [
+        {
+          "name": "Create Research Task",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topic\": \"Latest advancements in quantum computing\",\n  \"description\": \"Research the latest breakthroughs in quantum computing in 2026\",\n  \"priority\": \"HIGH\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/research/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "research", "tasks"]
+            },
+            "description": "Create a direct research task (legacy endpoint, not part of workflow system).\n\n**Priority values:** LOW, MEDIUM, HIGH, CRITICAL"
+          }
+        },
+        {
+          "name": "List Research Tasks",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/research/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "research", "tasks"]
+            },
+            "description": "List all research tasks."
+          }
+        },
+        {
+          "name": "List Research Tasks (filtered)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/research/tasks?status=COMPLETED&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "research", "tasks"],
+              "query": [
+                { "key": "status", "value": "COMPLETED" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "List research tasks with status filter and pagination.\n\n**Status values:** PENDING, RESEARCHING, ANALYZING, COMPLETED, FAILED"
+          }
+        },
+        {
+          "name": "Get Research Task",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/research/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "research", "tasks", "{{taskId}}"]
+            },
+            "description": "Get a specific research task by ID."
+          }
+        },
+        {
+          "name": "Delete Research Task",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/research/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "research", "tasks", "{{taskId}}"]
+            },
+            "description": "Delete a research task."
+          }
+        },
+        {
+          "name": "Get Research Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/research/reports/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "research", "reports", "{{taskId}}"]
+            },
+            "description": "Get the generated report for a completed research task."
+          }
+        }
+      ]
+    },
+    {
+      "name": "✅ Human Approvals",
+      "item": [
+        {
+          "name": "List Pending Approvals",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Has approvals data', function() {",
+                  "  var json = pm.response.json();",
+                  "  if (json.data.approvals && json.data.approvals.length > 0) {",
+                  "    pm.collectionVariables.set('approvalId', json.data.approvals[0]._id);",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "pending"]
+            },
+            "description": "List all pending approval requests for the current user.\nAuto-sets the `approvalId` variable if approvals exist."
+          }
+        },
+        {
+          "name": "List Pending Approvals (by project)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/pending?projectId={{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "pending"],
+              "query": [
+                { "key": "projectId", "value": "{{projectId}}" }
+              ]
+            },
+            "description": "Filter pending approvals by project ID."
+          }
+        },
+        {
+          "name": "Approve Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approved\": true,\n  \"comment\": \"Looks good, proceed with the next step\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/{{approvalId}}/decide",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "{{approvalId}}", "decide"]
+            },
+            "description": "Approve a pending request. The workflow will continue to the next step."
+          }
+        },
+        {
+          "name": "Reject Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approved\": false,\n  \"comment\": \"Please revise the content and resubmit\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/{{approvalId}}/decide",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "{{approvalId}}", "decide"]
+            },
+            "description": "Reject a pending request with feedback."
+          }
+        },
+        {
+          "name": "Get Approval Count",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/count",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "count"]
+            },
+            "description": "Get the count of pending approvals for the current user."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏢 Departments & Employees",
+      "item": [
+        {
+          "name": "List Departments",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/departments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "departments"]
+            },
+            "description": "List all departments with employee counts and aggregated skills."
+          }
+        },
+        {
+          "name": "Get Department Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/departments/research",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "departments", "research"]
+            },
+            "description": "Get department details with full employee information."
+          }
+        },
+        {
+          "name": "Get Department Employees",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/departments/research/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "departments", "research", "employees"]
+            },
+            "description": "Get all employees in a specific department."
+          }
+        },
+        {
+          "name": "List All Employees",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees"]
+            },
+            "description": "List all registered AI employees with skills, departments, and tools."
+          }
+        },
+        {
+          "name": "Filter Employees by Department",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/employees?department=content",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees"],
+              "query": [
+                { "key": "department", "value": "content" }
+              ]
+            },
+            "description": "Filter employees by department.\n\n**Departments:** research, content, media, publishing, analytics, memory, management"
+          }
+        },
+        {
+          "name": "Filter Employees by Skill",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/employees?skill=seo",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees"],
+              "query": [
+                { "key": "skill", "value": "seo" }
+              ]
+            },
+            "description": "Filter employees by skill (partial match)."
+          }
+        },
+        {
+          "name": "Get Employee Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/employees/writer",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees", "writer"]
+            },
+            "description": "Get detailed information about a specific employee type, including same-department peers."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🧠 Memory System",
+      "item": [
+        {
+          "name": "Get Memory Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/memory/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "memory", "status"]
+            },
+            "description": "Get memory statistics for the current user across all memory stores (short, long, learning, executions, history, legacy)."
+          }
+        },
+        {
+          "name": "List Long-Term Memories",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/memory/long",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "memory", "long"]
+            },
+            "description": "List all long-term memories. Supports category filter."
+          }
+        },
+        {
+          "name": "List Long-Term Memories (by category)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/memory/long?category=preference&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "memory", "long"],
+              "query": [
+                { "key": "category", "value": "preference" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Filter long-term memories by category.\n\n**Categories:** preference, fact, pattern, insight, reference"
+          }
+        },
+        {
+          "name": "Store Long-Term Memory",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"preference\",\n  \"key\": \"content_tone\",\n  \"value\": \"User prefers professional and technical tone with data-driven insights\",\n  \"source\": \"user-feedback\",\n  \"importance\": 8,\n  \"tags\": [\"content-style\", \"writing\", \"preferences\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/memory/long",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "memory", "long"]
+            },
+            "description": "Store a new long-term memory."
+          }
+        },
+        {
+          "name": "Recall Long-Term Memory by Key",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/memory/long/content_tone",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "memory", "long", "content_tone"]
+            },
+            "description": "Recall a specific long-term memory by its unique key."
+          }
+        },
+        {
+          "name": "List Learning Memories",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/memory/learning",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "memory", "learning"]
+            },
+            "description": "List learning memories (patterns learned from AI behavior)."
+          }
+        },
+        {
+          "name": "Filter Learning by Employee",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/memory/learning?employeeType=writer&minConfidence=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "memory", "learning"],
+              "query": [
+                { "key": "employeeType", "value": "writer" },
+                { "key": "minConfidence", "value": "50" }
+              ]
+            },
+            "description": "Filter learning memories by employee type and minimum confidence score."
+          }
+        },
+        {
+          "name": "List Execution Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/memory/executions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "memory", "executions"]
+            },
+            "description": "List execution logs with timing, tokens, and cost data."
+          }
+        },
+        {
+          "name": "Get Project History Timeline",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/memory/history/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "memory", "history", "{{projectId}}"]
+            },
+            "description": "Get the full event timeline for a project."
+          }
+        },
+        {
+          "name": "Add Project History Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventType\": \"note\",\n  \"title\": \"User review completed\",\n  \"description\": \"User manually reviewed the generated content and requested minor changes\",\n  \"importance\": \"medium\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/memory/history/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "memory", "history", "{{projectId}}"]
+            },
+            "description": "Add a manual event to a project's history timeline.\n\n**Event types:** created, task_completed, task_failed, milestone, decision, approved, rejected, note\n**Importance:** low, medium, high, critical"
+          }
+        },
+        {
+          "name": "Smart Memory Search",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/memory/search?query=AI%20healthcare&projectId={{projectId}}&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "memory", "search"],
+              "query": [
+                { "key": "query", "value": "AI healthcare" },
+                { "key": "projectId", "value": "{{projectId}}" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Smart search across all memory stores (short, long, learning, executions, history, legacy)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📅 Scheduler",
+      "item": [
+        {
+          "name": "List Scheduled Jobs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scheduler"]
+            },
+            "description": "List all scheduled jobs for the current user."
+          }
+        },
+        {
+          "name": "List Active Jobs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler?isActive=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scheduler"],
+              "query": [
+                { "key": "isActive", "value": "true" }
+              ]
+            },
+            "description": "List only active scheduled jobs."
+          }
+        },
+        {
+          "name": "Create Scheduled Job",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function() {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Job created', function() {",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json.success).to.eq(true);",
+                  "  pm.expect(json.data).to.have.property('_id');",
+                  "  pm.collectionVariables.set('jobId', json.data._id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Daily AI News Research\",\n  \"description\": \"Research latest AI news every weekday at 9 AM\",\n  \"workflowId\": \"youtube-video\",\n  \"input\": {\n    \"title\": \"Daily AI News Digest\",\n    \"goal\": \"Research the latest AI news and create a video summary\"\n  },\n  \"cronExpression\": \"0 9 * * 1-5\",\n  \"scheduleDescription\": \"Every weekday at 9:00 AM\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scheduler"]
+            },
+            "description": "Create a new recurring scheduled job.\nAuto-sets the `jobId` variable on success.\n\n**Cron Examples:**\n- `0 9 * * 1-5` — Weekdays at 9 AM\n- `0 8 * * 1` — Every Monday at 8 AM\n- `0 0 1 * *` — First day of every month\n- `0 */6 * * *` — Every 6 hours"
+          }
+        },
+        {
+          "name": "Get Scheduled Job",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler/{{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scheduler", "{{jobId}}"]
+            },
+            "description": "Get details of a specific scheduled job."
+          }
+        },
+        {
+          "name": "Pause Scheduled Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler/{{jobId}}/pause",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scheduler", "{{jobId}}", "pause"]
+            },
+            "description": "Pause a scheduled job. It won't execute until resumed."
+          }
+        },
+        {
+          "name": "Resume Scheduled Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler/{{jobId}}/resume",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scheduler", "{{jobId}}", "resume"]
+            },
+            "description": "Resume a paused scheduled job."
+          }
+        },
+        {
+          "name": "Delete Scheduled Job",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/scheduler/{{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scheduler", "{{jobId}}"]
+            },
+            "description": "Delete a scheduled job permanently."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Analytics",
+      "item": [
+        {
+          "name": "Analytics Index",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics"]
+            },
+            "description": "List available analytics endpoints."
+          }
+        },
+        {
+          "name": "Analytics Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "summary"]
+            },
+            "description": "Get full analytics summary: total executions, average duration, total cost, total tokens, success rate, failure rate."
+          }
+        },
+        {
+          "name": "Employee Performance",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "employees"]
+            },
+            "description": "Get performance breakdown by employee type: execution count, average duration, success rate, total cost."
+          }
+        },
+        {
+          "name": "Cost Trends (30 days)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/costs?days=30",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "costs"],
+              "query": [
+                { "key": "days", "value": "30" }
+              ]
+            },
+            "description": "Get daily AI cost trends for the specified number of days."
+          }
+        },
+        {
+          "name": "Performance Trends (7 days)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/performance?days=7",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "performance"],
+              "query": [
+                { "key": "days", "value": "7" }
+              ]
+            },
+            "description": "Get execution time and success rate trends for the specified number of days."
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚙️ System Dashboard",
+      "item": [
+        {
+          "name": "System Status Overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/system/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "system", "status"]
+            },
+            "description": "Get full system health overview with counts for all components: employees, tools, providers, queues, workflows, departments."
+          }
+        },
+        {
+          "name": "List All Tools",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tools",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tools"]
+            },
+            "description": "List all registered tools with names, descriptions, and categories."
+          }
+        },
+        {
+          "name": "List All Providers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "providers"]
+            },
+            "description": "List all AI providers with health check status, configuration state, and latency."
+          }
+        },
+        {
+          "name": "List All Workflows",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workflows",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "workflows"]
+            },
+            "description": "List all registered workflows with step details including approval requirements and dependencies."
+          }
+        }
+      ]
+    }
+  ]
+}
