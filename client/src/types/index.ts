@@ -252,6 +252,14 @@ export interface ProjectHistory {
   timestamp: string
 }
 
+// ==================== Execution Mode Types ====================
+
+export type ExecutionMode = 'AUTO' | 'MANUAL'
+
+export interface ExecutionModeSettings {
+  executionMode: ExecutionMode
+}
+
 // ==================== Scheduler Types ====================
 
 export interface ScheduledJob {

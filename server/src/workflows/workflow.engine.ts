@@ -3,10 +3,12 @@ import { QueueRegistry } from '../registries/queue.registry';
 import { EmployeeRegistry } from '../registries/employee.registry';
 import { WorkflowRegistry } from './workflow.registry';
 import { WorkflowDefinition, WorkflowStep, WorkflowExecutionResult } from './workflow.types';
-import { Project } from '../features/projects/project.model';
+import { Project, ExecutionMode } from '../features/projects/project.model';
 import { Task } from '../features/projects/task.model';
 import { ActivityLog } from '../features/employees/employee.model';
 import { Approval } from '../features/approvals/approval.model';
+import { UserSettings } from '../features/settings/settings.model';
+import type { ExecutionMode as SettingsExecutionMode } from '../features/settings/settings.model';
 
 export class WorkflowEngine {
   /**
@@ -14,11 +16,36 @@ export class WorkflowEngine {
    * Creates tasks for all workflow steps with dependency resolution.
    * If a step requires approval, it pauses until the user approves.
    */
+  /**
+   * Resolve the effective execution mode for a project:
+   * - If project has an explicit mode, use it
+   * - Otherwise fall back to the user's global setting
+   * - Default to AUTO
+   */
+  static async resolveExecutionMode(userId: string, projectId?: string): Promise<'AUTO' | 'MANUAL'> {
+    // Check project-level override first
+    if (projectId) {
+      const project = await Project.findById(projectId).exec();
+      if (project?.executionMode) {
+        return project.executionMode as 'AUTO' | 'MANUAL';
+      }
+    }
+
+    // Fall back to global user setting
+    const settings = await UserSettings.findOne({ userId }).exec();
+    if (settings?.executionMode) {
+      return settings.executionMode as 'AUTO' | 'MANUAL';
+    }
+
+    return 'AUTO';
+  }
+
   static async executeWorkflow(
     workflowId: string,
     projectId: string,
     userId: string,
-    userInput: Record<string, any>
+    userInput: Record<string, any>,
+    executionMode?: 'AUTO' | 'MANUAL'
   ): Promise<WorkflowExecutionResult> {
     const startTime = Date.now();
     const workflow = WorkflowRegistry.get(workflowId);
@@ -31,10 +58,19 @@ export class WorkflowEngine {
     // Merge default input with user input
     const mergedInput = { ...workflow.defaultInput, ...userInput };
 
+    // Resolve execution mode: explicit param > project setting > global setting > AUTO
+    const effectiveMode = executionMode || await this.resolveExecutionMode(userId, projectId);
+    logger.info(`[WorkflowEngine] Execution mode: ${effectiveMode} for project ${projectId}`);
+
     // Create tasks for all steps
     const createdTaskIds: string[] = [];
     for (let i = 0; i < workflow.steps.length; i++) {
       const step = workflow.steps[i];
+
+      // In MANUAL mode, EVERY step requires approval (unless already explicitly set)
+      // In AUTO mode, only steps with approvalRequired: true require approval
+      const needsApproval = effectiveMode === 'MANUAL' ? true : step.approvalRequired;
+
       const task = await Task.create({
         projectId,
         userId,
@@ -47,7 +83,7 @@ export class WorkflowEngine {
           workflowId: workflow.id,
           workflowStep: step.id,
         },
-        status: step.approvalRequired ? 'PENDING' : this.getInitialStatus(step, workflow.steps.slice(0, i)),
+        status: needsApproval ? 'PENDING' : this.getInitialStatus(step, workflow.steps.slice(0, i)),
         priority: 'MEDIUM',
         order: i,
         dependencies: step.dependsOn,
@@ -56,7 +92,7 @@ export class WorkflowEngine {
       createdTaskIds.push(task.id.toString());
 
       // If step requires approval, create an approval record
-      if (step.approvalRequired) {
+      if (needsApproval) {
         await Approval.create({
           projectId,
           taskId: task.id.toString(),
@@ -66,7 +102,7 @@ export class WorkflowEngine {
           status: 'pending',
           requestedAt: new Date(),
         });
-        logger.info(`[WorkflowEngine] Approval required for step: ${step.id} (${step.title})`);
+        logger.info(`[WorkflowEngine] ${effectiveMode === 'MANUAL' ? '[MANUAL MODE]' : ''} Approval required for step: ${step.id} (${step.title})`);
       }
     }
 

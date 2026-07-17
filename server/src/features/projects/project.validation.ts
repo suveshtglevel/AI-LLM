@@ -26,3 +26,12 @@ export const taskIdSchema = z.object({
     id: z.string().min(1, 'Task ID is required'),
   }),
 });
+
+export const updateProjectExecutionModeSchema = z.object({
+  params: z.object({
+    id: z.string().min(1, 'Project ID is required'),
+  }),
+  body: z.object({
+    executionMode: z.enum(['AUTO', 'MANUAL', '']).nullable(),
+  }),
+});

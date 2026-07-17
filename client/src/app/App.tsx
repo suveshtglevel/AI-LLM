@@ -30,6 +30,7 @@ const ToolsPage = lazy(() => import('@/features/tools/ToolsPage').then((m) => ({
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const NotificationsPage = lazy(() => import('@/features/notifications/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
 const QueuesPage = lazy(() => import('@/features/queues/QueuesPage').then((m) => ({ default: m.QueuesPage })))
+const CompanyPage = lazy(() => import('@/features/company/CompanyPage').then((m) => ({ default: m.CompanyPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -121,6 +122,9 @@ function AppContent() {
             <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
               <Route path="/" element={
                 <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><DashboardPage /></Suspense></ErrorBoundary>
+              } />
+              <Route path="/company" element={
+                <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><CompanyPage /></Suspense></ErrorBoundary>
               } />
               <Route path="/projects" element={
                 <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><ProjectsPage /></Suspense></ErrorBoundary>

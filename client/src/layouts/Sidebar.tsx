@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FolderKanban, CheckSquare, Bot, Building2,
   GitBranch,  BarChart3, Cpu, Wrench, Brain, Calendar,
   CheckCircle, Bell, Settings, ChevronLeft, ChevronRight,
-  PanelRightClose, Layers,
+  PanelRightClose, Layers, Network,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/app.store'
@@ -14,7 +14,7 @@ import { SIDEBAR_ITEMS } from '@/utils/constants'
 const iconMap: Record<string, React.ElementType> = {
   LayoutDashboard, FolderKanban, CheckSquare, Bot, Building2,
   GitBranch, BarChart3, Cpu, Wrench, Brain, Calendar,
-  CheckCircle, Bell, Settings, Layers,
+  CheckCircle, Bell, Settings, Layers, Network,
 }
 
 export function Sidebar() {

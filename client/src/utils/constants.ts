@@ -4,6 +4,7 @@ export const ROUTES = {
   LOGIN: '/login',
   REGISTER: '/register',
   DASHBOARD: '/',
+  COMPANY: '/company',
   PROJECTS: '/projects',
   PROJECT_DETAIL: '/projects/:id',
   TASKS: '/tasks',
@@ -57,6 +58,7 @@ export const DEPARTMENTS = [
 
 export const SIDEBAR_ITEMS = [
   { label: 'Dashboard', icon: 'LayoutDashboard', path: ROUTES.DASHBOARD },
+  { label: 'Company', icon: 'Network', path: ROUTES.COMPANY },
   { label: 'Projects', icon: 'FolderKanban', path: ROUTES.PROJECTS },
   { label: 'Tasks', icon: 'CheckSquare', path: ROUTES.TASKS },
   { label: 'Employees', icon: 'Bot', path: ROUTES.EMPLOYEES },

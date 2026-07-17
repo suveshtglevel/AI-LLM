@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 
 const routeLabels: Record<string, string> = {
   '': 'Dashboard',
+  company: 'Company',
   projects: 'Projects',
   tasks: 'Tasks',
   employees: 'Employees',

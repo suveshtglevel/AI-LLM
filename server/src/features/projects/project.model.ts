@@ -1,5 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export type ExecutionMode = 'AUTO' | 'MANUAL';
+
 export interface IProject extends Document {
   userId: string;
   title: string;
@@ -9,6 +11,7 @@ export interface IProject extends Document {
   assignedManager: string | null;
   tasks: string[];
   progress: number;
+  executionMode: ExecutionMode | null; // null = inherit from global
   metadata: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
@@ -28,6 +31,11 @@ const ProjectSchema = new Schema<IProject>(
     assignedManager: { type: String, default: null },
     tasks: [{ type: String }],
     progress: { type: Number, default: 0, min: 0, max: 100 },
+    executionMode: {
+      type: String,
+      enum: ['AUTO', 'MANUAL'],
+      default: null,
+    },
     metadata: { type: Schema.Types.Mixed, default: {} },
   },
   { timestamps: true, collection: 'projects' }

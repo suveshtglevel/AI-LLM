@@ -170,7 +170,27 @@ Aggregation across all executions:
 - **Cost trends** — Daily AI cost tracking over 30 days
 - **Performance trends** — Execution time and success rate over 7 days
 
-### 10. 🎯 Goal Delegation (CEO)
+### 10. ⚙️ Execution Mode — Manual / Automatic
+
+A company-wide execution mode system controlling workflow automation:
+
+| Mode | Behavior |
+|------|----------|
+| **Automatic** (AUTO) | Employees execute tasks and auto-continue to next step. No approval required unless explicitly set in workflow definition. |
+| **Manual** (MANUAL) | Every step pauses for human approval before the next employee can start. User can Approve, Reject, Retry, or Skip. |
+
+**Hierarchical resolution**: `Project.executionMode` → `UserSettings.executionMode` → AUTO
+- Global setting stored in `user_settings` collection per user
+- Per-project override via `PATCH /api/projects/:id/execution-mode`
+- `null` on project = inherit global default
+
+**Backend architecture**:
+- `WorkflowEngine.resolveExecutionMode()` resolves effective mode from project → user settings → AUTO
+- In MANUAL mode: ALL workflow steps create approval records (not just explicitly marked `approvalRequired: true`)
+- `Manager.onTaskCompleted()` checks mode before auto-queuing next tasks; creates approvals in MANUAL mode
+- Architecture supports future modes (Semi-Automatic, Scheduled, Human-in-the-Loop, etc.) without breaking changes
+
+### 11. 🎯 Goal Delegation (CEO)
 
 ```
 POST /api/ceo/delegate
@@ -265,6 +285,17 @@ CEO auto-detects workflow from goal text → creates project with all steps → 
 | POST | `/api/scheduler/:id/resume` | Resume job |
 | DELETE | `/api/scheduler/:id` | Delete job |
 
+### Settings
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/settings/execution-mode` | Get global execution mode (AUTO/MANUAL) |
+| PATCH | `/api/settings/execution-mode` | Update global execution mode |
+
+### Project Execution Mode
+| Method | Route | Description |
+|--------|-------|-------------|
+| PATCH | `/api/projects/:id/execution-mode` | Override execution mode for a specific project |
+
 ### Health
 | Method | Route | Description |
 |--------|-------|-------------|
@@ -352,6 +383,11 @@ src/
 │   │   ├── scheduler.routes.ts     # GET/POST /api/scheduler
 │   │   └── scheduler.validation.ts # Zod schemas
 │   │
+│   ├── settings/                   # Execution Mode settings
+│   │   ├── settings.model.ts       # UserSettings: global executionMode (AUTO/MANUAL)
+│   │   ├── settings.routes.ts      # GET/PATCH /api/settings/execution-mode
+│   │   └── settings.validation.ts  # Zod schemas
+│   │
 │   └── system/                     # Dashboard APIs ▼
 │       ├── system.routes.ts        # GET /api/system/status
 │       ├── tools.routes.ts         # GET /api/tools
@@ -436,6 +472,7 @@ src/
 | `execution_logs` | Memory system | Execution history |
 | `project_history` | Memory system | Timeline events |
 | `scheduled_jobs` | Scheduler | Recurring job configs |
+| `user_settings` | Settings | Global execution mode per user (AUTO/MANUAL) |
 
 ---
 
@@ -498,6 +535,7 @@ GITHUB_MODELS_API_KEY=
 | Multi-agent collaboration | ❌ | ✅ 11 employees via EventBus |
 | Plugin architecture | ❌ | ✅ 6 registries |
 | Human approvals | ❌ | ✅ Workflow gate system |
+| Execution modes | ❌ | ✅ Manual/Automatic with per-project override |
 | Recurring tasks | ❌ | ✅ Cron scheduler |
 | Cost tracking | ❌ | ✅ Analytics service |
 | Skill-based routing | ❌ | ✅ SkillMatcher |

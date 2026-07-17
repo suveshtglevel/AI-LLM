@@ -1,18 +1,25 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
 import {
   FolderKanban, Bot, CheckCircle, XCircle, Clock, 
-  TrendingUp, Activity, BarChart3, Zap,
+  TrendingUp, Activity, BarChart3, Zap, AlertTriangle,
+  Shield, Users, ArrowRight,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import { systemService } from '@/services/system.service'
 import { analyticsService } from '@/services/analytics.service'
+import { approvalsService } from '@/services/approvals.service'
+import { useExecutionModeStore } from '@/store/execution-mode.store'
 import { DashboardAreaChart, DashboardPieChart, DashboardBarChart } from './DashboardCharts'
 import { cn } from '@/lib/utils'
 
 export function DashboardPage() {
+  const { globalMode } = useExecutionModeStore()
+
   const { data: systemStatus, isLoading: loadingStatus } = useQuery({
     queryKey: ['system-status'],
     queryFn: () => systemService.getStatus(),
@@ -38,8 +45,15 @@ export function DashboardPage() {
     queryFn: () => analyticsService.getPerformanceTrends(7),
   })
 
+  const { data: approvalsData } = useQuery({
+    queryKey: ['approvals-count'],
+    queryFn: () => approvalsService.getCount(),
+    refetchInterval: 10000,
+  })
+
   const status = systemStatus?.data
   const summary = analytics?.data
+  const pendingApprovals = approvalsData?.data?.count || 0
 
   const statsCards = [
     {
@@ -124,10 +138,139 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        <p className="text-sm text-white/50 mt-1">Overview of your AI Operating System</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+          <p className="text-sm text-white/50 mt-1">Overview of your AI Operating System</p>
+        </div>
+        {/* Global Mode Indicator */}
+        <Link to="/settings">
+          <Badge
+            variant={globalMode === 'AUTO' ? 'success' : 'warning'}
+            className="text-xs px-3 py-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            {globalMode === 'AUTO' ? (
+              <><Zap className="w-3 h-3 mr-1.5" /> Automatic</>
+            ) : (
+              <><AlertTriangle className="w-3 h-3 mr-1.5" /> Manual</>
+            )}
+          </Badge>
+        </Link>
       </div>
+
+      {/* Mission Control */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn(
+          'rounded-xl border p-4 transition-all duration-300',
+          globalMode === 'MANUAL'
+            ? 'border-orange-500/20 bg-orange-500/[0.03]'
+            : 'border-emerald-500/20 bg-emerald-500/[0.03]'
+        )}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Shield className={cn(
+              'w-4 h-4',
+              globalMode === 'MANUAL' ? 'text-orange-400' : 'text-emerald-400'
+            )} />
+            <h2 className="text-sm font-semibold text-white">Mission Control</h2>
+          </div>
+          <Badge
+            variant={globalMode === 'AUTO' ? 'success' : 'warning'}
+            className="text-[10px]"
+          >
+            {globalMode === 'AUTO' ? 'Fully Autonomous' : 'Manual Oversight'}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+            <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Mode</p>
+            <div className="flex items-center gap-1.5">
+              <span className={cn(
+                'w-2 h-2 rounded-full',
+                globalMode === 'AUTO' ? 'bg-emerald-400' : 'bg-orange-400'
+              )} />
+              <span className="text-sm font-semibold text-white">
+                {globalMode === 'AUTO' ? 'Automatic' : 'Manual'}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+            <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Employees</p>
+            <div className="flex items-center gap-1.5">
+              <Bot className="w-4 h-4 text-blue-400" />
+              <span className="text-lg font-bold text-white">{status?.employees ?? 0}</span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+            <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Running Now</p>
+            <div className="flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-blue-400" />
+              <span className="text-lg font-bold text-white">
+                {summary?.totalExecutions && summary?.successRate
+                  ? Math.round(summary.totalExecutions * (1 - summary.successRate))
+                  : 0
+                }
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+            <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Completed</p>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle className="w-4 h-4 text-green-400" />
+              <span className="text-lg font-bold text-white">
+                {summary?.totalExecutions && summary?.successRate
+                  ? Math.round(summary.totalExecutions * summary.successRate)
+                  : 0
+                }
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+            <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Failed</p>
+            <div className="flex items-center gap-1.5">
+              <XCircle className="w-4 h-4 text-red-400" />
+              <span className={cn(
+                'text-lg font-bold',
+                (summary?.totalExecutions && summary?.failureRate && summary.failureRate > 0) ? 'text-red-400' : 'text-white'
+              )}>
+                {summary?.totalExecutions && summary?.failureRate !== undefined
+                  ? Math.round(summary.totalExecutions * summary.failureRate)
+                  : 0
+                }
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+            <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Waiting Approval</p>
+            <div className="flex items-center gap-1.5">
+              <AlertTriangle className={cn(
+                'w-4 h-4',
+                pendingApprovals > 0 ? 'text-orange-400' : 'text-white/20'
+              )} />
+              <span className={cn(
+                'text-lg font-bold',
+                pendingApprovals > 0 ? 'text-orange-400' : 'text-white'
+              )}>
+                {pendingApprovals}
+              </span>
+            </div>
+            {pendingApprovals > 0 && (
+              <Link to="/approvals" className="text-[10px] text-orange-400/70 hover:text-orange-400 mt-1 inline-flex items-center gap-0.5">
+                Review <ArrowRight className="w-2.5 h-2.5" />
+              </Link>
+            )}
+          </div>
+        </div>
+      </motion.div>
 
       {/* Stats Grid */}
       <motion.div

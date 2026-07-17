@@ -51,6 +51,8 @@ client/
     │   ├── auth/
     │   │   ├── LoginPage.tsx
     │   │   └── RegisterPage.tsx
+    │   ├── company/
+    │   │   └── CompanyPage.tsx     # Org chart: CEO, Managers, Departments, Employees
     │   ├── dashboard/
     │   │   ├── DashboardPage.tsx
     │   │   └── DashboardCharts.tsx
@@ -100,16 +102,18 @@ client/
     │   ├── approvals.service.ts   # listPending, decide, getCount
     │   ├── employees.service.ts   # list, getByType
     │   ├── memory.service.ts      # getStatus, longMemories, learningMemories, executionLogs, projectHistory, search
-    │   ├── projects.service.ts    # list, getById, delete, delegate, getStatus
+    │   ├── projects.service.ts    # list, getById, delete, delegate, getStatus, updateExecutionMode
     │   ├── providers.service.ts   # CRUD for provider configs + API keys + testConnection
     │   ├── scheduler.service.ts   # CRUD + pause/resume for scheduled jobs
+    │   ├── settings.service.ts    # getExecutionMode, updateExecutionMode
     │   ├── socket.service.ts      # Socket.io client management
     │   ├── system.service.ts      # getStatus, getProviders, getTools, getWorkflows
     │   └── tasks.service.ts       # list, getById
     ├── store/                     # Zustand state stores
     │   ├── app.store.ts           # Sidebar state, notifications, unread count
     │   ├── auth.store.ts          # User, authentication state (persisted)
-    │   └── theme.store.ts         # Dark/light theme toggle (persisted)
+    │   ├── theme.store.ts         # Dark/light theme toggle (persisted)
+    │   └── execution-mode.store.ts # Global AUTO/MANUAL execution mode state (persisted)
     ├── hooks/
     │   ├── use-auth.ts            # useLogin, useRegister, useLogout mutations
     │   └── use-media-query.ts     # Responsive media query hook
@@ -133,6 +137,7 @@ All routes are defined in `src/app/App.tsx` with lazy-loaded components and erro
 | `/login`               | LoginPage            | ❌            |
 | `/register`            | RegisterPage         | ❌            |
 | `/`                    | DashboardPage        | ✅            |
+| `/company`             | CompanyPage          | ✅            |
 | `/projects`            | ProjectsPage         | ✅            |
 | `/projects/:id`        | ProjectDetailPage    | ✅            |
 | `/tasks`               | TasksPage            | ✅            |
@@ -171,6 +176,11 @@ All stores are managed with **Zustand 5**.
 ### `useThemeStore` (persisted to `theme-storage` in localStorage)
 - `theme` ('dark' | 'light')
 - `setTheme` / `toggleTheme` (updates `<html>` classes)
+
+### `useExecutionModeStore` (persisted to `execution-mode-storage` in localStorage)
+- `globalMode` ('AUTO' | 'MANUAL')
+- `setGlobalMode` (updates global execution mode)
+- `isLoading` / `setLoading`
 
 ---
 
@@ -233,6 +243,67 @@ All UI components are in `src/components/ui/`:
 - **Queues**: `QueueStatus`
 - **Notifications**: `Notification`
 - **API**: `ApiResponse<T>`, `PaginatedResponse<T>`
+- **Execution Mode**: `ExecutionMode` ('AUTO' | 'MANUAL'), `ExecutionModeSettings`
+
+---
+
+## Features
+
+### 1. AI Company Page (`/company`)
+
+An interactive organization chart page visualizing the AI company hierarchy:
+
+| Section | Description |
+|---------|-------------|
+| **Metrics Strip** | 6 live cards: Total Employees, Online, Active Projects, Tasks Running, Success Rate, Errors |
+| **CEO Frame** | Executive Board card with system health (Database/Redis/Workers status), KPIs, pulse animation |
+| **Managers Layer** | Visual "Management Team" section showing department managers with direct report counts |
+| **Departments** | Expandable nodes showing per-department employees with live status, pulse indicators |
+| **Employee Cards** | Name, type, live status, current thoughts (italic quotes), progress bars for memory |
+| **Sidebar Insights** | System Health, Queue Status, Employee Distribution (with progress bars), Department Skills |
+
+- **Real-time**: Socket.IO subscription for employee status updates (`employee:status` event)
+- **Demo mode**: Simulated employee thoughts when no real socket data arrives (auto-disables on real data)
+- **Auto-refresh**: Queries refresh every 10-30 seconds
+- **Animations**: Framer-motion stagger/spring animations, expandable departments, hover effects
+
+### 2. Execution Mode (Manual / Automatic)
+
+A company-wide execution mode system controlling workflow automation:
+
+| Mode | Indicator | Behavior |
+|------|-----------|----------|
+| **Automatic** | 🟢 Green (emerald badge) | Employees execute tasks and auto-continue to the next step. No approval required unless explicitly set in workflow. |
+| **Manual** | 🟠 Orange (warning badge) | Every step pauses for human approval. User can Approve, Reject, Retry, Skip before next employee starts. |
+
+**Global Toggle** (`/settings`):
+- Two-button toggle: Automatic / Manual
+- Persisted to localStorage + synced with backend via `GET/PATCH /api/settings/execution-mode`
+- Orange accent when Manual, green when Automatic
+- Explanatory text describing each mode's behavior
+
+**Per-Project Override** (`/projects/:id`):
+- Each project can override the global default with its own `executionMode`
+- Visual mode badge on project header
+- "Reset to global" option to inherit global setting
+- Manual mode shows pending approval cards inline with Approve ✓, Reject ✗, Retry ↻, Skip ⏭ actions
+
+**Mission Control Dashboard** (Dashboard page):
+- Dedicated Mission Control section showing:
+  - Mode (Automatic/Manual with colored indicator)
+  - Total AI Employees
+  - Running Now count
+  - Completed Tasks
+  - Failed Tasks
+  - Waiting Approvals (with link to Approvals page)
+
+**Backend Architecture**:
+- `UserSettings` model stores global `executionMode` per user
+- `Project.executionMode` field (null = inherit global)
+- `WorkflowEngine.resolveExecutionMode()` resolves effective mode hierarchically
+- In MANUAL mode: ALL workflow steps get approval records created (not just explicitly marked ones)
+- `Manager.onTaskCompleted()` checks mode before auto-queuing next tasks; creates approvals in MANUAL mode
+- Architecture supports future modes (Semi-Automatic, Scheduled, etc.)
 
 ---
 

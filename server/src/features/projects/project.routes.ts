@@ -3,7 +3,8 @@ import { authenticate } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validate';
 import { Project } from './project.model';
 import { Task } from './task.model';
-import { getProjectsSchema, projectIdSchema, getTasksSchema, taskIdSchema } from './project.validation';
+import { getProjectsSchema, projectIdSchema, getTasksSchema, taskIdSchema, updateProjectExecutionModeSchema } from './project.validation';
+import type { ExecutionMode } from './project.model';
 
 const router = Router();
 router.use(authenticate);
@@ -43,6 +44,29 @@ router.delete('/projects/:id', validate(projectIdSchema), async (req, res, next)
   try {
     await Project.findOneAndDelete({ _id: req.params.id, userId: req.user!.userId });
     res.json({ success: true, data: { message: 'Project deleted' } });
+  } catch (error) { next(error); }
+});
+
+/**
+ * PATCH /api/projects/:id/execution-mode
+ * Override execution mode for a specific project
+ */
+router.patch('/projects/:id/execution-mode', validate(updateProjectExecutionModeSchema), async (req, res, next) => {
+  try {
+    const { executionMode } = req.body as { executionMode: ExecutionMode | null };
+
+    const project = await Project.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user!.userId },
+      { executionMode: executionMode || null },
+      { new: true }
+    ).exec();
+
+    if (!project) {
+      res.status(404).json({ success: false, error: { message: 'Project not found' } });
+      return;
+    }
+
+    res.json({ success: true, data: { project } });
   } catch (error) { next(error); }
 });
 

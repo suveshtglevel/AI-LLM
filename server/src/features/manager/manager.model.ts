@@ -6,6 +6,7 @@ import { QueueRegistry } from '../../registries/queue.registry';
 import { EventBus, TaskEvent } from '../../services/event-bus';
 import { Approval } from '../approvals/approval.model';
 import { SkillMatcher, TaskSkillRequirement } from '../../services/skill-matcher';
+import { WorkflowEngine } from '../../workflows/workflow.engine';
 
 export class Manager {
   /**
@@ -120,6 +121,9 @@ export class Manager {
     const allProjectTasks = await Task.find({ projectId }).sort({ order: 1 }).exec();
     const completedCount = allProjectTasks.filter(t => t.status === 'COMPLETED').length;
 
+    // Resolve execution mode for this project
+    const executionMode = await WorkflowEngine.resolveExecutionMode(userId, projectId);
+
     for (const task of allProjectTasks) {
       if (task.status !== 'QUEUED' && task.status !== 'PENDING') continue;
 
@@ -144,6 +148,41 @@ export class Manager {
       });
 
       if (depsMet) {
+        // In MANUAL mode, create approval record for each task before queuing
+        if (executionMode === 'MANUAL') {
+          // Check if approval already exists
+          const existingApproval = await Approval.findOne({
+            taskId: task._id.toString(),
+            status: 'pending',
+          }).exec();
+
+          if (!existingApproval) {
+            // Create approval and keep task as PENDING — wait for user
+            await Approval.create({
+              projectId,
+              taskId: task._id.toString(),
+              userId: task.userId,
+              stepId: task.assignedEmployee,
+              employeeType: task.assignedEmployee,
+              status: 'pending',
+              requestedAt: new Date(),
+            });
+
+            logger.info(`[Manager] [MANUAL MODE] Created approval for task: ${task._id} (${task.assignedEmployee})`);
+
+            await EventBus.publish(TaskEvent.TASK_APPROVAL_REQUIRED, {
+              taskId: task._id.toString(),
+              projectId,
+              userId: task.userId,
+              employeeType: task.assignedEmployee,
+              metadata: { title: task.title, executionMode: 'MANUAL' },
+            });
+
+            continue; // Wait for approval
+          }
+        }
+
+        // AUTO mode or approval already handled — queue the task
         const queue = QueueRegistry.getQueue(task.assignedEmployee);
         if (queue) {
           await queue.add('task', {
