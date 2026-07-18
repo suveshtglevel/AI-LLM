@@ -252,6 +252,67 @@ export interface ProjectHistory {
   timestamp: string
 }
 
+// ==================== Project Output Types ====================
+
+export interface OutputDocument {
+  _id: string
+  projectId: string
+  taskId: string
+  employeeType: string
+  content: string
+  format: string
+  metadata: Record<string, unknown>
+  version: number
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface TaskWithOutput {
+  _id: string
+  assignedEmployee: string
+  title: string
+  description: string
+  status: string
+  order: number
+  input?: Record<string, unknown>
+  output: Record<string, unknown> | null
+  error: string | null
+  startedAt?: string
+  completedAt?: string
+  createdAt: string
+  documents: OutputDocument[]
+}
+
+export interface ProjectOutput {
+  project: {
+    _id: string
+    title: string
+    goal: string
+    status: string
+    progress: number
+    workflowType: string | null
+    createdAt: string
+  }
+  tasks: TaskWithOutput[]
+  documents: OutputDocument[]
+  knowledge: unknown[]
+  summary: {
+    totalTasks: number
+    completedTasks: number
+    failedTasks: number
+    inProgressTasks: number
+    totalDocuments: number
+    hasOutput: boolean
+  }
+}
+
+export interface TaskOutputDetail {
+  task: TaskWithOutput
+  documents: OutputDocument[]
+  output: Record<string, unknown> | null
+  hasContent: boolean
+}
+
 // ==================== Execution Mode Types ====================
 
 export type ExecutionMode = 'AUTO' | 'MANUAL'
@@ -337,13 +398,15 @@ export interface SystemStatus {
 
 export interface Provider {
   name: string
-  model: string
-  status: 'healthy' | 'degraded' | 'down'
-  latency: number
-  requests: number
-  tokens: number
-  failures: number
-  fallbackEnabled: boolean
+  displayName: string
+  isConfigured: boolean
+  healthy: boolean
+  latencyMs: number
+}
+
+export interface ProvidersResponse {
+  providers: Provider[]
+  total: number
 }
 
 export interface Tool {
@@ -354,6 +417,101 @@ export interface Tool {
   requests: number
   averageTime: number
   errors: number
+}
+
+// ==================== Inspector Types ====================
+
+export interface InspectorSnapshot {
+  employeeType: string
+  status: 'IDLE' | 'BUSY' | 'ERROR' | 'OFFLINE'
+  currentTask: string | null
+  currentTaskId: string | null
+  currentProjectId: string | null
+  currentGoal: string | null
+  currentReasoning: string | null
+  currentWorkflow: string | null
+  currentStep: string | null
+  currentQueue: string | null
+  currentProvider: string | null
+  currentModel: string | null
+  toolsUsed: string[]
+  promptVersion: string | null
+  tokensUsed: number
+  estimatedCost: number
+  executionTime: number
+  retryCount: number
+  memoryUsage: number
+  filesGenerated: string[]
+  latestOutput: Record<string, unknown> | null
+  latestError: string | null
+  healthStatus: 'healthy' | 'degraded' | 'unhealthy'
+  lastExecution: string | null
+  nextPlannedAction: string | null
+  timestamp: string
+}
+
+export interface InspectorLogEntry {
+  _id: string
+  employeeType: string
+  taskId: string
+  projectId: string
+  status: string
+  durationMs: number
+  tokensUsed: number
+  estimatedCostUsd: number
+  error: string | null
+  retryCount: number
+  provider: string
+  usedModel: string
+  metadata: Record<string, unknown>
+  createdAt: string
+}
+
+export interface InspectorHistoryEntry {
+  _id: string
+  employeeType: string
+  taskId: string
+  projectId: string
+  status: string
+  result: Record<string, unknown> | null
+  error: string | null
+  startedAt: string
+  completedAt: string | null
+  createdAt: string
+}
+
+export interface InspectorPerformance {
+  summary: {
+    totalExecutions: number
+    completed: number
+    failed: number
+    successRate: number
+    totalTokens: number
+    totalCost: number
+    averageDuration: number
+    averageTokens: number
+    averageCost: number
+  }
+  executionTrend: Array<{
+    date: string
+    count: number
+    success: number
+    failed: number
+    avgDuration: number
+  }>
+  costTrend: Array<{ date: string; cost: number }>
+  tokenTrend: Array<{ date: string; tokens: number }>
+  statusDistribution: Array<{ name: string; value: number; color: string }>
+  recentActivity: Array<{
+    _id: string
+    taskId: string
+    status: string
+    duration: number
+    tokens: number
+    cost: number
+    error: string | null
+    createdAt: string
+  }>
 }
 
 // ==================== Provider Config Types ====================

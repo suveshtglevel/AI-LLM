@@ -44,7 +44,7 @@ export function startAllWorkers(): void {
         const result = await instance.execute(job.data);
 
         if (result.success) {
-          await Manager.onTaskCompleted(taskId, projectId);
+          await Manager.onTaskCompleted(taskId, projectId, result.output);
         } else {
           await Manager.onTaskFailed(taskId, projectId, result.error || 'Unknown error');
         }
@@ -92,7 +92,7 @@ export function startEmployeeWorker(employeeType: string): void {
       const result = await instance.execute(job.data);
 
       if (result.success) {
-        await Manager.onTaskCompleted(taskId, projectId);
+        await Manager.onTaskCompleted(taskId, projectId, result.output);
       } else {
         await Manager.onTaskFailed(taskId, projectId, result.error || 'Unknown error');
       }

@@ -7,6 +7,14 @@ import { GroqProvider } from '../../providers/groq.provider';
 import { OpenRouterProvider } from '../../providers/openrouter.provider';
 import { MistralProvider } from '../../providers/mistral.provider';
 import { GitHubModelsProvider } from '../../providers/github-models.provider';
+import { DeepSeekProvider } from '../../providers/deepseek.provider';
+import { HuggingFaceProvider } from '../../providers/huggingface.provider';
+import { GoogleCloudProvider } from '../../providers/googlecloud.provider';
+import { AzureProvider } from '../../providers/azure.provider';
+import { AnthropicProvider } from '../../providers/anthropic.provider';
+import { LangChainProvider } from '../../providers/langchain.provider';
+import { AI21Provider } from '../../providers/ai21.provider';
+import { PerplexityProvider } from '../../providers/perplexity.provider';
 import { ProviderConfig } from '../../features/providers/provider.model';
 import type { IProviderConfig } from '../../features/providers/provider.model';
 
@@ -63,6 +71,14 @@ const API_KEY_MAP: Record<string, string> = {
   openrouter: env.OPENROUTER_API_KEY || '',
   mistral: env.MISTRAL_API_KEY || '',
   github: env.GITHUB_MODELS_API_KEY || '',
+  deepseek: env.DEEPSEEK_API_KEY || '',
+  huggingface: env.HUGGINGFACE_API_KEY || '',
+  googlecloud: env.GOOGLECLOUD_API_KEY || '',
+  azure: env.AZURE_API_KEY || '',
+  anthropic: env.ANTHROPIC_API_KEY || '',
+  langchain: env.LANGCHAIN_API_KEY || '',
+  ai21: env.AI21_API_KEY || '',
+  perplexity: env.PERPLEXITY_API_KEY || '',
 };
 
 // Provider creator functions for dynamic instantiation with API keys
@@ -71,6 +87,14 @@ const PROVIDER_CREATORS: Record<string, (apiKey: string) => BaseProvider> = {
   openrouter: (apiKey) => new OpenRouterProvider(apiKey),
   mistral: (apiKey) => new MistralProvider(apiKey),
   github: (apiKey) => new GitHubModelsProvider(apiKey),
+  deepseek: (apiKey) => new DeepSeekProvider(apiKey),
+  huggingface: (apiKey) => new HuggingFaceProvider(apiKey),
+  googlecloud: (apiKey) => new GoogleCloudProvider(apiKey),
+  azure: (apiKey) => new AzureProvider(apiKey),
+  anthropic: (apiKey) => new AnthropicProvider(apiKey),
+  langchain: (apiKey) => new LangChainProvider(apiKey),
+  ai21: (apiKey) => new AI21Provider(apiKey),
+  perplexity: (apiKey) => new PerplexityProvider(apiKey),
 };
 
 export class AIService {
@@ -109,6 +133,10 @@ export class AIService {
       return new ProviderClass();
     }
 
+    if (name === 'anthropic') {
+      return new AnthropicProvider(env.ANTHROPIC_API_KEY || '');
+    }
+
     if (PROVIDER_CREATORS[name] && API_KEY_MAP[name]) {
       return PROVIDER_CREATORS[name](API_KEY_MAP[name]);
     }
@@ -135,6 +163,9 @@ export class AIService {
     }
     if (type === 'gemini') {
       return new GeminiProvider(apiKey);
+    }
+    if (type === 'anthropic') {
+      return new AnthropicProvider(apiKey);
     }
 
     // For custom/unknown provider types, use a generic OpenAI-compatible provider

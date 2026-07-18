@@ -1,6 +1,8 @@
 import { logger } from '../../config/logger';
 import { EmployeeSession } from './employee.model';
 import { AgentMemory } from '../../modules/memory/memory.model';
+import { InspectorService } from './inspector/inspector.service';
+import { emitInspectorLog } from '../../socket';
 
 export interface EmployeeProfile {
   type: string;
@@ -46,6 +48,32 @@ export abstract class BaseEmployee {
       projectId: task.projectId,
     });
 
+    // Update inspector snapshot
+    await InspectorService.updateSnapshot(this.profile.type, {
+      status: 'BUSY',
+      currentTask: task.title,
+      currentTaskId: task.taskId,
+      currentProjectId: task.projectId,
+      currentGoal: task.input?.goal as string || task.title,
+      currentReasoning: `${this.profile.role} processing "${task.title}" — ${this.profile.goal}`,
+      currentModel: task.input?.model as string || this.profile.model,
+      currentProvider: task.input?.provider as string || null,
+      currentQueue: `${this.profile.type}-task-queue`,
+      toolsUsed: this.profile.allowedTools,
+      promptVersion: this.profile.promptTemplate,
+      nextPlannedAction: `Executing ${this.profile.role}: ${task.title}`,
+    });
+
+    // Log activity
+    await InspectorService.logActivity(this.profile.type, {
+      userId: task.userId,
+      projectId: task.projectId,
+      taskId: task.taskId,
+      action: 'execution_started',
+      status: 'started',
+      metadata: { title: task.title, input: task.input },
+    });
+
     try {
       // 1. Create session
       const session = await EmployeeSession.create({
@@ -75,6 +103,28 @@ export abstract class BaseEmployee {
       const executionTime = Date.now() - startTime;
       logger.info(`[${this.profile.name}] Completed`, { taskId: task.taskId, executionTime });
 
+      // Update inspector snapshot
+      await InspectorService.updateSnapshot(this.profile.type, {
+        status: 'IDLE',
+        latestOutput: output,
+        executionTime,
+        lastExecution: new Date(),
+        nextPlannedAction: null,
+        currentTask: null,
+        currentTaskId: null,
+      });
+
+      // Log completion
+      await InspectorService.logActivity(this.profile.type, {
+        userId: task.userId,
+        projectId: task.projectId,
+        taskId: task.taskId,
+        action: 'execution_completed',
+        status: 'completed',
+        duration: executionTime,
+        metadata: { outputSize: JSON.stringify(output).length },
+      });
+
       return { success: true, output, executionTime };
     } catch (error) {
       const executionTime = Date.now() - startTime;
@@ -88,6 +138,26 @@ export abstract class BaseEmployee {
           { status: 'FAILED', error: message, completedAt: new Date() }
         );
       } catch { /* ignore cleanup errors */ }
+
+      // Update inspector snapshot with error
+      await InspectorService.updateSnapshot(this.profile.type, {
+        status: 'ERROR',
+        latestError: message,
+        executionTime,
+        lastExecution: new Date(),
+        nextPlannedAction: 'Retry pending',
+      });
+
+      // Log failure
+      await InspectorService.logActivity(this.profile.type, {
+        userId: task.userId,
+        projectId: task.projectId,
+        taskId: task.taskId,
+        action: 'execution_failed',
+        status: 'failed',
+        duration: executionTime,
+        metadata: { error: message },
+      });
 
       return { success: false, output: null, error: message, executionTime };
     }

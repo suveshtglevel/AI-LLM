@@ -13,6 +13,8 @@ export interface ITask extends Document {
   error: string | null;
   parentTaskId: string | null;
   dependencies: string[];
+  /** If true, dependents may proceed even if this task fails, and its failure does not fail the project */
+  optional: boolean;
   order: number;
   createdAt: Date;
   completedAt: Date | null;
@@ -41,6 +43,7 @@ const TaskSchema = new Schema<ITask>(
     error: { type: String, default: null },
     parentTaskId: { type: String, default: null },
     dependencies: [{ type: String }],
+    optional: { type: Boolean, default: false },
     order: { type: Number, default: 0 },
     completedAt: { type: Date, default: null },
   },

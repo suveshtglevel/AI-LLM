@@ -1252,7 +1252,7 @@
           }
         },
         {
-          "name": "List All Providers",
+          "name": "List All Providers (Registry Status)",
           "request": {
             "method": "GET",
             "header": [
@@ -1263,7 +1263,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "providers"]
             },
-            "description": "List all AI providers with health check status, configuration state, and latency."
+            "description": "List all AI providers from the registry with health check status, configuration state, and latency."
           }
         },
         {
@@ -1280,6 +1280,203 @@
             },
             "description": "List all registered workflows with step details including approval requirements and dependencies."
           }
+        }
+      ]
+    },
+    {
+      "name": "🔌 Provider Configs (DB CRUD + Key Rotation)",
+      "item": [
+        {
+          "name": "List Provider Configs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/configs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "providers", "configs"]
+            },
+            "description": "List all provider configurations stored in the database. These are the configs that support multi-key rotation."
+          }
+        },
+        {
+          "name": "Create Provider Config",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function() {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Provider created', function() {",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json.success).to.eq(true);",
+                  "  pm.expect(json.data).to.have.property('name');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"openai\",\n  \"displayName\": \"OpenAI\",\n  \"providerType\": \"openai\",\n  \"apiKeys\": [\n    { \"key\": \"sk-key1...\" },\n    { \"key\": \"sk-key2...\" },\n    { \"key\": \"sk-key3...\" }\n  ],\n  \"baseUrl\": \"https://api.openai.com/v1\",\n  \"models\": [\"gpt-4o\", \"gpt-4o-mini\", \"gpt-4-turbo\"],\n  \"defaultModel\": \"gpt-4o-mini\",\n  \"isEnabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/configs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "providers", "configs"]
+            },
+            "description": "Create a new provider configuration. Paste 3–4 API keys in the `apiKeys` array for automatic round-robin rotation.\n\nThe backend rotates through keys (least-recently-used first), tracks failures, and deactivates keys after 3 consecutive failures."
+          },
+          "response": [
+            {
+              "name": "Provider Created",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"name\": \"openai\",\n    \"displayName\": \"OpenAI\",\n    \"providerType\": \"openai\",\n    \"apiKeys\": [\n      { \"key\": \"sk-key1...\", \"isActive\": true, \"failureCount\": 0, \"lastUsed\": null },\n      { \"key\": \"sk-key2...\", \"isActive\": true, \"failureCount\": 0, \"lastUsed\": null },\n      { \"key\": \"sk-key3...\", \"isActive\": true, \"failureCount\": 0, \"lastUsed\": null }\n    ],\n    \"baseUrl\": \"https://api.openai.com/v1\",\n    \"models\": [\"gpt-4o\", \"gpt-4o-mini\", \"gpt-4-turbo\"],\n    \"defaultModel\": \"gpt-4o-mini\",\n    \"isEnabled\": true,\n    \"createdAt\": \"2026-07-17T12:00:00.000Z\",\n    \"updatedAt\": \"2026-07-17T12:00:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Provider Config",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/configs/openai",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "providers", "configs", "openai"]
+            },
+            "description": "Get a single provider configuration by name."
+          }
+        },
+        {
+          "name": "Update Provider Config",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"defaultModel\": \"gpt-4o\",\n  \"models\": [\"gpt-4o\", \"gpt-4o-mini\"],\n  \"isEnabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/configs/openai",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "providers", "configs", "openai"]
+            },
+            "description": "Update a provider configuration (partial update)."
+          }
+        },
+        {
+          "name": "Delete Provider Config",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/configs/openai",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "providers", "configs", "openai"]
+            },
+            "description": "Delete a provider configuration."
+          }
+        },
+        {
+          "name": "Add API Key (for rotation)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Key added', function() {",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json.success).to.eq(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"sk-new-key...\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/configs/openai/keys",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "providers", "configs", "openai", "keys"]
+            },
+            "description": "Add another API key to an existing provider config. The backend will include it in the rotation pool.\n\nRotation strategy: picks the least-recently-used active key; deactivates after 3 failures."
+          }
+        },
+        {
+          "name": "Remove API Key",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/configs/openai/keys/KEY_ID_HERE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "providers", "configs", "openai", "keys", "KEY_ID_HERE"]
+            },
+            "description": "Remove a specific API key from a provider config. Replace KEY_ID_HERE with the actual key _id from the provider config."
+          }
+        },
+        {
+          "name": "Test Provider Connection",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/providers/configs/openai/test",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "providers", "configs", "openai", "test"]
+            },
+            "description": "Test a provider configuration by making a simple API call with the first active key. Returns latency in ms."
+          },
+          "response": [
+            {
+              "name": "Test Success",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"latency\": 342,\n    \"message\": \"Connection successful\"\n  }\n}"
+            }
+          ]
         }
       ]
     }

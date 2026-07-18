@@ -62,14 +62,22 @@ export class WorkflowEngine {
     const effectiveMode = executionMode || await this.resolveExecutionMode(userId, projectId);
     logger.info(`[WorkflowEngine] Execution mode: ${effectiveMode} for project ${projectId}`);
 
-    // Create tasks for all steps
+    // Create tasks for all steps.
+    // Steps reference dependencies by step id (e.g. 'research'); the Manager resolves
+    // dependencies by task id, so we remap step ids → created task ids as we go.
     const createdTaskIds: string[] = [];
+    const stepIdToTaskId = new Map<string, string>();
     for (let i = 0; i < workflow.steps.length; i++) {
       const step = workflow.steps[i];
 
       // In MANUAL mode, EVERY step requires approval (unless already explicitly set)
       // In AUTO mode, only steps with approvalRequired: true require approval
       const needsApproval = effectiveMode === 'MANUAL' ? true : step.approvalRequired;
+
+      // Map this step's dependencies (step ids) to the task ids created for earlier steps.
+      const dependencyTaskIds = (step.dependsOn || [])
+        .map(depStepId => stepIdToTaskId.get(depStepId))
+        .filter((id): id is string => Boolean(id));
 
       const task = await Task.create({
         projectId,
@@ -86,10 +94,12 @@ export class WorkflowEngine {
         status: needsApproval ? 'PENDING' : this.getInitialStatus(step, workflow.steps.slice(0, i)),
         priority: 'MEDIUM',
         order: i,
-        dependencies: step.dependsOn,
+        dependencies: dependencyTaskIds,
+        optional: step.optional || false,
       });
 
       createdTaskIds.push(task.id.toString());
+      stepIdToTaskId.set(step.id, task.id.toString());
 
       // If step requires approval, create an approval record
       if (needsApproval) {

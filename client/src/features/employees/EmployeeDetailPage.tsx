@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, Bot, Clock, CheckCircle, XCircle,
-  Activity, Brain, Wrench, Cpu, Zap, Calendar,
+  Activity, Brain, Wrench, Cpu, Zap, Calendar, Eye,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge, statusToVariant } from '@/components/ui/badge'
@@ -87,9 +87,18 @@ export function EmployeeDetailPage() {
                   <h1 className="text-2xl font-bold text-white">{employee.name}</h1>
                   <p className="text-sm text-white/50 capitalize">{employee.type} · {employee.department}</p>
                 </div>
-                <Badge variant={statusToVariant(employee.status)} className="text-sm px-3 py-1">
-                  {employee.status}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to={`/employees/${employee.type}/inspector`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all border border-blue-500/20"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    Inspector
+                  </Link>
+                  <Badge variant={statusToVariant(employee.status)} className="text-sm px-3 py-1">
+                    {employee.status}
+                  </Badge>
+                </div>
               </div>
               <p className="text-sm text-white/40">{employee.description}</p>
             </div>

@@ -1,3 +1,4 @@
+import http from 'http';
 import app from './app';
 import { env } from './config/env';
 import { logger } from './config/logger';
@@ -9,6 +10,7 @@ import './workflows'; // Triggers workflow auto-registration
 import { schedulerService } from './services/scheduler.service';
 import { startResearchWorker } from './workers/research.worker';
 import { startPlanningWorker } from './workers/planning.worker';
+import { initializeSocket } from './socket';
 
 async function bootstrap(): Promise<void> {
   const startTime = Date.now();
@@ -27,7 +29,11 @@ async function bootstrap(): Promise<void> {
     // Start scheduler
     schedulerService.start();
 
-    const server = app.listen(env.PORT, () => {
+    // Create HTTP server and attach Socket.IO
+    const httpServer = http.createServer(app);
+    initializeSocket(httpServer);
+
+    const server = httpServer.listen(env.PORT, () => {
       const elapsed = Date.now() - startTime;
       logger.info(`✅ AIOS Server started on port ${env.PORT} (${env.NODE_ENV} mode) in ${elapsed}ms`);
       logger.info(`📚 API Routes:`);

@@ -3,10 +3,10 @@ import { WorkflowRegistry } from '../workflow.registry';
 WorkflowRegistry.register({
   id: 'podcast',
   name: 'Podcast Production',
-  description: 'End-to-end podcast production: research, script, review, voice recording, and publishing',
-  version: '1.0.0',
+  description: 'End-to-end podcast production: research, script, review, voice recording, compliance, publishing, and distribution',
+  version: '1.1.0',
   category: 'media',
-  estimatedDurationMinutes: 30,
+  estimatedDurationMinutes: 32,
   tags: ['podcast', 'audio', 'content', 'voice'],
   defaultInput: {
     tone: 'conversational',
@@ -39,6 +39,14 @@ WorkflowRegistry.register({
       approvalRequired: true,
     },
     {
+      id: 'qa',
+      employeeType: 'qa',
+      title: 'Compliance check',
+      description: 'Copyright, brand-safety, and policy gate on the script',
+      dependsOn: ['reviewer'],
+      approvalRequired: false,
+    },
+    {
       id: 'voice',
       employeeType: 'voice',
       title: 'Record voice narration',
@@ -51,8 +59,17 @@ WorkflowRegistry.register({
       employeeType: 'publisher',
       title: 'Publish episode',
       description: 'Prepare and publish podcast episode with metadata',
-      dependsOn: ['voice'],
+      dependsOn: ['voice', 'qa'],
       approvalRequired: true,
+    },
+    {
+      id: 'social',
+      employeeType: 'social',
+      title: 'Promote episode',
+      description: 'Draft platform-native promo posts and a posting schedule',
+      dependsOn: ['publisher'],
+      approvalRequired: false,
+      optional: true,
     },
   ],
 });

@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, SystemStatus, Provider, Tool, Workflow } from '@/types'
+import type { ApiResponse, SystemStatus, ProvidersResponse, Tool, Workflow } from '@/types'
 
 export const systemService = {
   async getStatus() {
@@ -8,7 +8,7 @@ export const systemService = {
   },
 
   async getProviders() {
-    const res = await api.get<ApiResponse<Provider[]>>('/providers')
+    const res = await api.get<ApiResponse<ProvidersResponse>>('/providers')
     return res.data
   },
 

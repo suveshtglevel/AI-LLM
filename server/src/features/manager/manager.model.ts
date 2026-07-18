@@ -96,8 +96,9 @@ export class Manager {
 
   /**
    * Handle task completion: update dependencies, queue next tasks, check project completion.
+   * @param taskOutput - Optional output from the employee execution to store on the task
    */
-  static async onTaskCompleted(taskId: string, projectId: string): Promise<void> {
+  static async onTaskCompleted(taskId: string, projectId: string, taskOutput?: Record<string, any> | null): Promise<void> {
     logger.info(`[Manager] Task completed: ${taskId} in project ${projectId}`);
 
     // Get the task for metadata
@@ -105,8 +106,12 @@ export class Manager {
     const employeeType = completedTask?.assignedEmployee || 'unknown';
     const userId = completedTask?.userId || 'unknown';
 
-    // Update the task
-    await Task.findByIdAndUpdate(taskId, { status: 'COMPLETED', completedAt: new Date() });
+    // Update the task — save output so it's retrievable via the output API
+    const updateFields: any = { status: 'COMPLETED', completedAt: new Date() };
+    if (taskOutput) {
+      updateFields.output = taskOutput;
+    }
+    await Task.findByIdAndUpdate(taskId, updateFields);
 
     // Publish event
     await EventBus.publish(TaskEvent.TASK_COMPLETED, {
@@ -117,9 +122,29 @@ export class Manager {
       metadata: completedTask ? { title: completedTask.title } : undefined,
     });
 
-    // Check for next tasks whose dependencies are now all met
+    // Advance the workflow: queue any tasks whose dependencies are now satisfied.
+    await Manager.queueReadyTasks(projectId);
+  }
+
+  /**
+   * A task is "settled" for dependency/completion purposes when it has completed,
+   * or when it is optional and failed (optional failures do not block the workflow).
+   */
+  private static isSettled(status: string, optional: boolean): boolean {
+    return status === 'COMPLETED' || (optional && status === 'FAILED');
+  }
+
+  /**
+   * Queue every PENDING/QUEUED task whose dependencies are all settled, honoring
+   * execution mode and approval gates, then update project progress/completion.
+   * Safe to call after any task completes or after an optional task fails.
+   */
+  private static async queueReadyTasks(projectId: string): Promise<void> {
     const allProjectTasks = await Task.find({ projectId }).sort({ order: 1 }).exec();
-    const completedCount = allProjectTasks.filter(t => t.status === 'COMPLETED').length;
+    if (allProjectTasks.length === 0) return;
+
+    const userId = allProjectTasks.find(t => t.userId)?.userId || 'unknown';
+    const settledCount = allProjectTasks.filter(t => Manager.isSettled(t.status, t.optional)).length;
 
     // Resolve execution mode for this project
     const executionMode = await WorkflowEngine.resolveExecutionMode(userId, projectId);
@@ -141,10 +166,10 @@ export class Manager {
         }
       }
 
-      // Check all dependencies are completed
+      // Check all dependencies are settled (completed, or optional-and-failed)
       const depsMet = task.dependencies.every(depId => {
         const depTask = allProjectTasks.find(t => t.id === depId || t._id.toString() === depId);
-        return depTask && depTask.status === 'COMPLETED';
+        return depTask && Manager.isSettled(depTask.status, depTask.optional);
       });
 
       if (depsMet) {
@@ -198,10 +223,10 @@ export class Manager {
       }
     }
 
-    // Check if project is complete
+    // Check if project is complete — all tasks settled (completed, or optional-and-failed)
     const total = allProjectTasks.length;
-    const progress = total > 0 ? Math.round((completedCount / total) * 100) : 100;
-    const isComplete = completedCount === total;
+    const progress = total > 0 ? Math.round((settledCount / total) * 100) : 100;
+    const isComplete = settledCount === total;
 
     await Project.findByIdAndUpdate(projectId, {
       progress,
@@ -214,7 +239,7 @@ export class Manager {
         projectId,
         userId,
         employeeType: 'manager',
-        metadata: { totalTasks: total, completedTasks: completedCount },
+        metadata: { totalTasks: total, completedTasks: settledCount },
       });
       logger.info(`[Manager] Project ${projectId} completed!`);
     }
@@ -241,9 +266,17 @@ export class Manager {
       metadata: { error },
     });
 
+    // Optional steps don't block the workflow or fail the project — advance dependents and stop.
+    if (task?.optional) {
+      logger.info(`[Manager] Optional task ${taskId} failed — continuing workflow`);
+      await Manager.queueReadyTasks(projectId);
+      return;
+    }
+
     const project = await Project.findById(projectId);
     if (project) {
-      const failedTasks = await Task.countDocuments({ projectId, status: 'FAILED' }).exec();
+      // Only required (non-optional) failures count toward failing the project
+      const failedTasks = await Task.countDocuments({ projectId, status: 'FAILED', optional: { $ne: true } }).exec();
       if (failedTasks >= 2) {
         await Project.findByIdAndUpdate(projectId, { status: 'FAILED' });
         await EventBus.publish(TaskEvent.WORKFLOW_FAILED, {

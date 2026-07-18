@@ -15,6 +15,7 @@ const RegisterPage = lazy(() => import('@/features/auth/RegisterPage').then((m) 
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const EmployeesPage = lazy(() => import('@/features/employees/EmployeesPage').then((m) => ({ default: m.EmployeesPage })))
 const EmployeeDetailPage = lazy(() => import('@/features/employees/EmployeeDetailPage').then((m) => ({ default: m.EmployeeDetailPage })))
+const InspectorPage = lazy(() => import('@/features/employees/InspectorPage').then((m) => ({ default: m.InspectorPage })))
 const ProjectsPage = lazy(() => import('@/features/projects/ProjectsPage').then((m) => ({ default: m.ProjectsPage })))
 const ProjectDetailPage = lazy(() => import('@/features/projects/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage })))
 const TasksPage = lazy(() => import('@/features/tasks/TasksPage').then((m) => ({ default: m.TasksPage })))
@@ -140,6 +141,9 @@ function AppContent() {
               } />
               <Route path="/employees/:type" element={
                 <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><EmployeeDetailPage /></Suspense></ErrorBoundary>
+              } />
+              <Route path="/employees/:type/inspector" element={
+                <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><InspectorPage /></Suspense></ErrorBoundary>
               } />
               <Route path="/departments" element={
                 <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><DepartmentsPage /></Suspense></ErrorBoundary>

@@ -15,7 +15,7 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
   // AI Provider selection
-  AI_PROVIDER: z.enum(['openai', 'gemini', 'groq', 'openrouter', 'mistral', 'github']).default('openai'),
+  AI_PROVIDER: z.enum(['openai', 'gemini', 'groq', 'openrouter', 'mistral', 'github', 'deepseek', 'huggingface', 'googlecloud', 'azure', 'anthropic', 'langchain', 'ai21', 'perplexity']).default('openai'),
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   GEMINI_API_KEY: z.string().default(''),
@@ -23,6 +23,14 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().default(''),
   MISTRAL_API_KEY: z.string().default(''),
   GITHUB_MODELS_API_KEY: z.string().default(''),
+  DEEPSEEK_API_KEY: z.string().default(''),
+  HUGGINGFACE_API_KEY: z.string().default(''),
+  GOOGLECLOUD_API_KEY: z.string().default(''),
+  AZURE_API_KEY: z.string().default(''),
+  ANTHROPIC_API_KEY: z.string().default(''),
+  LANGCHAIN_API_KEY: z.string().default(''),
+  AI21_API_KEY: z.string().default(''),
+  PERPLEXITY_API_KEY: z.string().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -178,7 +178,7 @@ function EmployeeNode({ employee, isLive }: { employee: Employee; isLive?: LiveE
   )
 }
 
-function DepartmentNode({ department, employees: deptEmployees, liveStatuses }: {
+function DepartmentNode({ department, employees, liveStatuses }: {
   department: Department
   employees: Employee[]
   liveStatuses: Map<string, LiveEmployeeStatus>

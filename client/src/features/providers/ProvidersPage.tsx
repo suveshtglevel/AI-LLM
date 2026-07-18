@@ -22,8 +22,16 @@ const PROVIDER_TYPES = [
   { type: 'gemini', displayName: 'Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', models: ['gemini-pro', 'gemini-1.5-pro', 'gemini-1.5-flash'], defaultModel: 'gemini-pro' },
   { type: 'groq', displayName: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', models: ['mixtral-8x7b-32768', 'llama2-70b-4096', 'gemma2-9b-it'], defaultModel: 'mixtral-8x7b-32768' },
   { type: 'openrouter', displayName: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', models: ['openai/gpt-4o-mini', 'openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-pro'], defaultModel: 'openai/gpt-4o-mini' },
-  { type: 'mistral', displayName: 'Mistral', baseUrl: 'https://api.mistral.ai/v1', models: ['mistral-small-latest', 'mistral-medium-latest', 'mistral-large-latest'], defaultModel: 'mistral-small-latest' },
+  { type: 'mistral', displayName: 'Mistral AI', baseUrl: 'https://api.mistral.ai/v1', models: ['mistral-small-latest', 'mistral-medium-latest', 'mistral-large-latest'], defaultModel: 'mistral-small-latest' },
   { type: 'github', displayName: 'GitHub Models', baseUrl: 'https://models.inference.ai.azure.com', models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'], defaultModel: 'gpt-4o-mini' },
+  { type: 'deepseek', displayName: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', models: ['deepseek-chat', 'deepseek-coder'], defaultModel: 'deepseek-chat' },
+  { type: 'huggingface', displayName: 'Hugging Face', baseUrl: 'https://api-inference.huggingface.co/v1', models: ['mistralai/Mistral-7B-Instruct-v0.3', 'meta-llama/Llama-2-70b-chat-hf'], defaultModel: 'mistralai/Mistral-7B-Instruct-v0.3' },
+  { type: 'googlecloud', displayName: 'Google Cloud AI', baseUrl: 'https://us-central1-aiplatform.googleapis.com/v1', models: ['gemini-1.5-pro', 'gemini-1.5-flash'], defaultModel: 'gemini-1.5-pro' },
+  { type: 'azure', displayName: 'Azure OpenAI', baseUrl: 'https://models.inference.ai.azure.com', models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'], defaultModel: 'gpt-4o-mini' },
+  { type: 'anthropic', displayName: 'Anthropic Claude', baseUrl: 'https://api.anthropic.com/v1', models: ['claude-3-haiku-20240307', 'claude-3-sonnet-20240229', 'claude-3-opus-20240229'], defaultModel: 'claude-3-haiku-20240307' },
+  { type: 'langchain', displayName: 'LangChain', baseUrl: 'https://api.langchain.com/v1', models: ['llama-2-70b-chat', 'llama-2-13b-chat'], defaultModel: 'llama-2-70b-chat' },
+  { type: 'ai21', displayName: 'AI21 Labs', baseUrl: 'https://api.ai21.com/v1', models: ['j2-mid', 'j2-ultra'], defaultModel: 'j2-mid' },
+  { type: 'perplexity', displayName: 'Perplexity AI', baseUrl: 'https://api.perplexity.ai', models: ['sonar-pro', 'sonar-small-chat'], defaultModel: 'sonar-pro' },
   { type: 'custom', displayName: 'Custom (OpenAI-compatible)', baseUrl: '', models: [], defaultModel: '' },
 ]
 
@@ -35,6 +43,14 @@ function getProviderLogo(name: string, size = 5) {
     openrouter: 'from-purple-500/20 to-violet-600/10 text-purple-400 border-purple-500/20',
     mistral: 'from-cyan-500/20 to-teal-600/10 text-cyan-400 border-cyan-500/20',
     github: 'from-gray-500/20 to-slate-600/10 text-gray-400 border-gray-500/20',
+    deepseek: 'from-yellow-500/20 to-amber-600/10 text-yellow-400 border-yellow-500/20',
+    huggingface: 'from-pink-500/20 to-rose-600/10 text-pink-400 border-pink-500/20',
+    googlecloud: 'from-indigo-500/20 to-sky-600/10 text-indigo-400 border-indigo-500/20',
+    azure: 'from-blue-600/20 to-indigo-700/10 text-blue-500 border-blue-600/20',
+    anthropic: 'from-orange-600/20 to-amber-700/10 text-orange-500 border-orange-600/20',
+    langchain: 'from-lime-500/20 to-green-600/10 text-lime-400 border-lime-500/20',
+    ai21: 'from-fuchsia-500/20 to-pink-600/10 text-fuchsia-400 border-fuchsia-500/20',
+    perplexity: 'from-emerald-500/20 to-green-600/10 text-emerald-400 border-emerald-500/20',
   }
   return colors[name] || 'from-white/10 to-white/5 text-white/40 border-white/10'
 }
@@ -71,7 +87,7 @@ export function ProvidersPage() {
     queryFn: () => providerConfigService.listConfigs(),
   })
 
-  const providerStatuses = statusData?.data || []
+  const providerStatuses = statusData?.data?.providers || []
   const providerConfigs = configsData?.data || []
 
   const createMutation = useMutation({
