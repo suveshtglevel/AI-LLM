@@ -25,6 +25,7 @@ import { providerRoutes } from './features/providers';
 import workflowsRoutes from './features/system/workflows.routes';
 import settingsRoutes from './features/settings/settings.routes';
 import inspectorRoutes from './features/employees/inspector/inspector.routes';
+import publishingRoutes from './features/publishing/publishing.routes';
 
 const app = express();
 
@@ -79,6 +80,7 @@ app.use('/api/providers', providerRoutes);
 app.use('/api/workflows', workflowsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/employees', inspectorRoutes);
+app.use('/api/publishing', publishingRoutes);
 
 // ==================== Error Handler ====================
 

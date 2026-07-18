@@ -1,6 +1,7 @@
 import { BaseEmployee, EmployeeTaskInput } from '../base-employee.model';
 import { aiService } from '../../../services/ai/ai.service';
 import { EmployeeRegistry } from '../../../registries/employee.registry';
+import { PublishJob } from '../../../features/publishing/publishing.model';
 
 export class PublisherEmployee extends BaseEmployee {
   constructor() {
@@ -21,13 +22,36 @@ export class PublisherEmployee extends BaseEmployee {
     const title = task.input.title || task.title;
     const platforms: string[] = task.input.platforms || ['youtube'];
     const description = task.input.description || '';
+    const fileUrl = task.input.fileUrl || '';
+    const filePath = task.input.filePath || '';
+    const autoPublish = task.input.autoPublish === true;
 
     // Generate platform-specific content
     const platformContent: Record<string, any> = {};
-
     for (const platform of platforms) {
       platformContent[platform] = await this.prepareForPlatform(platform, title, description, content);
     }
+
+    // Create actual publish job in the publishing queue
+    const publishJob = await PublishJob.create({
+      userId: task.userId,
+      projectId: task.projectId,
+      taskId: task.taskId,
+      title: title,
+      description: description,
+      content: content,
+      contentType: task.input.contentType || 'video',
+      fileUrl,
+      filePath,
+      tags: task.input.tags || [],
+      scheduleTime: task.input.scheduleTime || null,
+      platforms: platforms.map((p: string) => ({
+        platform: p,
+        status: autoPublish ? 'pending' : 'pending',
+        retryCount: 0,
+      })),
+      status: 'queued',
+    });
 
     return {
       title,
@@ -37,10 +61,12 @@ export class PublisherEmployee extends BaseEmployee {
         platform: p,
         status: 'ready',
         content: platformContent[p],
+        publishJobId: publishJob._id.toString(),
         scheduledFor: task.input.scheduleTime || 'immediate',
       })),
       crossPlatformLinks: platforms.length > 1 ? this.generateCrossPlatformLinks(platforms) : [],
-      status: 'ready_for_publishing',
+      status: autoPublish ? 'publishing' : 'ready_for_publishing',
+      publishJobId: publishJob._id.toString(),
     };
   }
 
