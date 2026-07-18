@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { API_BASE_URL } from '@/utils/constants'
+import { useAuthStore } from '@/store/auth.store'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -39,6 +40,12 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = []
 }
 
+function handleAuthFailure() {
+  localStorage.removeItem('accessToken')
+  localStorage.removeItem('refreshToken')
+  useAuthStore.getState().logout()
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -59,9 +66,7 @@ api.interceptors.response.use(
 
       const refreshToken = localStorage.getItem('refreshToken')
       if (!refreshToken) {
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
-        window.location.href = '/login'
+        handleAuthFailure()
         return Promise.reject(error)
       }
 
@@ -77,9 +82,7 @@ api.interceptors.response.use(
         return api(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError, null)
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
-        window.location.href = '/login'
+        handleAuthFailure()
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false

@@ -16,7 +16,6 @@ import { providerConfigService } from '@/services/providers.service'
 import { cn } from '@/lib/utils'
 import type { ProviderConfig, CreateProviderInput } from '@/types'
 
-// Known provider types — the key is the providerType sent to the backend
 const PROVIDER_TYPES = [
   { type: 'openai', displayName: 'OpenAI', baseUrl: 'https://api.openai.com/v1', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'], defaultModel: 'gpt-4o-mini' },
   { type: 'gemini', displayName: 'Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', models: ['gemini-pro', 'gemini-1.5-pro', 'gemini-1.5-flash'], defaultModel: 'gemini-pro' },
@@ -35,7 +34,7 @@ const PROVIDER_TYPES = [
   { type: 'custom', displayName: 'Custom (OpenAI-compatible)', baseUrl: '', models: [], defaultModel: '' },
 ]
 
-function getProviderLogo(name: string, size = 5) {
+function getProviderLogo(name: string) {
   const colors: Record<string, string> = {
     openai: 'from-green-500/20 to-emerald-600/10 text-green-400 border-green-500/20',
     gemini: 'from-blue-500/20 to-cyan-600/10 text-blue-400 border-blue-500/20',
@@ -58,33 +57,33 @@ function getProviderLogo(name: string, size = 5) {
 export function ProvidersPage() {
   const queryClient = useQueryClient()
   const [showAddPanel, setShowAddPanel] = useState(false)
-  const [selectedProviderType, setSelectedProviderType] = useState<string>('')
+  const [selectedProviderType, setSelectedProviderType] = useState('')
   const [isCustom, setIsCustom] = useState(false)
-  const [newProvider, setNewProvider] = useState<CreateProviderInput>({
-    name: '',
-    displayName: '',
-    providerType: '',
-    apiKeys: [{ key: '' }],
-    baseUrl: '',
-    models: [],
-    defaultModel: '',
-    isEnabled: true,
-  })
+  const [customName, setCustomName] = useState('')
+  const [customDisplayName, setCustomDisplayName] = useState('')
+  const [customBaseUrl, setCustomBaseUrl] = useState('')
+  const [customDefaultModel, setCustomDefaultModel] = useState('')
+  const [customModels, setCustomModels] = useState('')
+  const [singleKey, setSingleKey] = useState('')
   const [expandedConfigs, setExpandedConfigs] = useState<Set<string>>(new Set())
   const [showKeys, setShowKeys] = useState<Set<string>>(new Set())
   const [newKeyInputs, setNewKeyInputs] = useState<Record<string, string>>({})
   const [testingNames, setTestingNames] = useState<Set<string>>(new Set())
 
-  // Fetch provider statuses from backend
   const { data: statusData, isLoading: loadingStatus } = useQuery({
     queryKey: ['providers'],
     queryFn: () => systemService.getProviders(),
+    retry: false,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
   })
 
-  // Fetch provider configs from DB
   const { data: configsData, isLoading: loadingConfigs } = useQuery({
     queryKey: ['provider-configs'],
     queryFn: () => providerConfigService.listConfigs(),
+    retry: false,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
   })
 
   const providerStatuses = statusData?.data?.providers || []
@@ -94,8 +93,15 @@ export function ProvidersPage() {
     mutationFn: providerConfigService.createConfig,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-configs'] })
-      setShowAddPanel(false)
-      resetNewProvider()
+      resetForm()
+    },
+  })
+
+  const addKeyMutation = useMutation({
+    mutationFn: ({ name, key }: { name: string; key: string }) =>
+      providerConfigService.addApiKey(name, key),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['provider-configs'] })
     },
   })
 
@@ -110,14 +116,6 @@ export function ProvidersPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['provider-configs'] }),
   })
 
-  const addKeyMutation = useMutation({
-    mutationFn: ({ name, key }: { name: string; key: string }) =>
-      providerConfigService.addApiKey(name, key),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['provider-configs'] })
-    },
-  })
-
   const deleteKeyMutation = useMutation({
     mutationFn: ({ name, keyId }: { name: string; keyId: string }) =>
       providerConfigService.deleteApiKey(name, keyId),
@@ -128,58 +126,52 @@ export function ProvidersPage() {
     mutationFn: (name: string) => providerConfigService.testConnection(name),
   })
 
-  function resetNewProvider() {
-    setNewProvider({
-      name: '',
-      displayName: '',
-      providerType: '',
-      apiKeys: [{ key: '' }],
-      baseUrl: '',
-      models: [],
-      defaultModel: '',
-      isEnabled: true,
-    })
+  function resetForm() {
     setSelectedProviderType('')
     setIsCustom(false)
+    setCustomName('')
+    setCustomDisplayName('')
+    setCustomBaseUrl('')
+    setCustomDefaultModel('')
+    setCustomModels('')
+    setSingleKey('')
+    setShowAddPanel(false)
   }
 
-  function applyProviderType(type: string) {
-    const providerType = PROVIDER_TYPES.find((t) => t.type === type)
+  function handleAddKey() {
+    const key = singleKey.trim()
+    if (!key || !selectedProviderType) return
+
+    const providerType = PROVIDER_TYPES.find(t => t.type === selectedProviderType)
     if (!providerType) return
 
-    setSelectedProviderType(type)
-    setIsCustom(type === 'custom')
+    const name = selectedProviderType === 'custom' ? customName.trim().toLowerCase().replace(/\s/g, '-') : selectedProviderType
+    if (!name) return
 
-    if (type === 'custom') {
-      setNewProvider({
-        name: '',
-        displayName: '',
-        providerType: 'custom',
-        apiKeys: [{ key: '' }],
-        baseUrl: '',
-        models: [],
-        defaultModel: '',
-        isEnabled: true,
-      })
+    // Check if provider config already exists
+    const existingConfig = providerConfigs.find(c => c.name === name)
+
+    if (existingConfig) {
+      // Add key to existing provider
+      addKeyMutation.mutate({ name, key })
     } else {
-      setNewProvider({
-        name: type,
-        displayName: providerType.displayName,
-        providerType: type,
-        apiKeys: [{ key: '' }],
-        baseUrl: providerType.baseUrl,
-        models: providerType.models,
-        defaultModel: providerType.defaultModel,
+      // Create provider first, then add key
+      const payload: any = {
+        name,
+        displayName: selectedProviderType === 'custom' ? customDisplayName.trim() || name : providerType.displayName,
+        providerType: selectedProviderType === 'custom' ? 'custom' : selectedProviderType,
+        apiKeys: [{ key }],
+        baseUrl: selectedProviderType === 'custom' ? customBaseUrl.trim() : providerType.baseUrl,
+        models: selectedProviderType === 'custom' ? customModels.split(',').map(m => m.trim()).filter(Boolean) : providerType.models,
+        defaultModel: selectedProviderType === 'custom' ? customDefaultModel.trim() || '' : providerType.defaultModel,
         isEnabled: true,
-      })
-    }
-  }
+      }
 
-  function handleCreateProvider() {
-    const validKeys = newProvider.apiKeys.filter((k) => k.key.trim())
-    if (!newProvider.name || !newProvider.displayName || !newProvider.baseUrl || validKeys.length === 0) return
-    if (!newProvider.providerType) return
-    createMutation.mutate({ ...newProvider, apiKeys: validKeys })
+      if (!payload.displayName || !payload.baseUrl) return
+      createMutation.mutate(payload)
+    }
+
+    setSingleKey('')
   }
 
   function handleTestConnection(name: string) {
@@ -229,16 +221,16 @@ export function ProvidersPage() {
         <div>
           <h1 className="text-3xl font-bold text-white">AI Providers</h1>
           <p className="text-sm text-white/50 mt-1">
-            {providerStatuses.length} registered · {providerConfigs.length} configured
+            {providerStatuses.length} registered · {providerConfigs.reduce((s, c) => s + c.apiKeys.length, 0)} total keys
           </p>
         </div>
         <Button variant="primary" onClick={() => setShowAddPanel(!showAddPanel)}>
           <Plus className="w-4 h-4" />
-          Add Provider
+          Add API Key
         </Button>
       </div>
 
-      {/* Add Provider Panel */}
+      {/* Add Key Panel — single input, auto-segregates */}
       <AnimatePresence>
         {showAddPanel && (
           <motion.div
@@ -249,150 +241,145 @@ export function ProvidersPage() {
           >
             <Card className="border-blue-500/20 bg-blue-500/5">
               <CardContent className="p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-white">Add New Provider</h3>
+                <h3 className="text-sm font-semibold text-white">Add API Key</h3>
+                <p className="text-xs text-white/40">Select a provider type, paste your key, and click add. Each paste goes to the same provider config for rotation.</p>
 
-                {/* Provider Type Dropdown */}
-                <div>
-                  <label className="block text-xs text-white/50 mb-2">Provider Type *</label>
-                  <select
-                    value={selectedProviderType}
-                    onChange={(e) => applyProviderType(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/[0.08] text-white text-sm focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 appearance-none cursor-pointer"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'right 12px center',
-                      backgroundSize: '14px',
-                    }}
-                  >
-                    <option value="" disabled className="bg-gray-900 text-white/50">
-                      Select a provider type...
-                    </option>
-                    {PROVIDER_TYPES.map((pt) => (
-                      <option key={pt.type} value={pt.type} className="bg-gray-900 text-white">
-                        {pt.displayName}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Provider Type */}
+                  <div>
+                    <label className="block text-xs text-white/50 mb-2">Provider Type *</label>
+                    <select
+                      value={selectedProviderType}
+                      onChange={(e) => {
+                        setSelectedProviderType(e.target.value)
+                        setIsCustom(e.target.value === 'custom')
+                      }}
+                      className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/[0.08] text-white text-sm focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 appearance-none cursor-pointer"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 12px center',
+                        backgroundSize: '14px',
+                      }}
+                    >
+                      <option value="" disabled className="bg-gray-900 text-white/50">Select a provider...</option>
+                      {PROVIDER_TYPES.map((pt) => (
+                        <option key={pt.type} value={pt.type} className="bg-gray-900 text-white">{pt.displayName}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* API Key Input */}
+                  <div className="md:col-span-2">
+                    <label className="block text-xs text-white/50 mb-2">API Key *</label>
+                    <input
+                      type="text"
+                      value={singleKey}
+                      onChange={(e) => setSingleKey(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddKey() }}
+                      placeholder="sk-... (paste one key at a time)"
+                      className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/[0.08] text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+
+                  {/* Add Button */}
+                  <div className="flex items-end">
+                    <Button
+                      variant="primary"
+                      onClick={handleAddKey}
+                      className="w-full"
+                      isLoading={createMutation.isPending || addKeyMutation.isPending}
+                      disabled={!selectedProviderType || !singleKey.trim()}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Key
+                    </Button>
+                  </div>
                 </div>
 
-                {/* Form */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {isCustom && (
-                    <>
-                      <div>
-                        <label className="block text-xs text-white/50 mb-1">Provider Name *</label>
-                        <input
-                          type="text"
-                          value={newProvider.name}
-                          onChange={(e) => setNewProvider({ ...newProvider, name: e.target.value.toLowerCase().replace(/\s/g, '-') })}
-                          placeholder="e.g. my-custom-ai"
-                          className="w-full h-9 px-3 rounded-lg bg-white/5 border border-white/[0.08] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-white/50 mb-1">Display Name *</label>
-                        <input
-                          type="text"
-                          value={newProvider.displayName}
-                          onChange={(e) => setNewProvider({ ...newProvider, displayName: e.target.value })}
-                          placeholder="e.g. My Custom AI"
-                          className="w-full h-9 px-3 rounded-lg bg-white/5 border border-white/[0.08] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20"
-                        />
-                      </div>
-                    </>
-                  )}
-                  {!isCustom && (
-                    <div className="md:col-span-2">
-                      <label className="block text-xs text-white/50 mb-1">Provider Name</label>
+                {/* Custom provider fields */}
+                {isCustom && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-white/[0.06]">
+                    <div>
+                      <label className="block text-xs text-white/50 mb-1">Name *</label>
                       <input
                         type="text"
-                        value={newProvider.name}
-                        disabled
-                        className="w-full h-9 px-3 rounded-lg bg-white/[0.02] border border-white/[0.06] text-white/40 text-xs cursor-not-allowed"
+                        value={customName}
+                        onChange={(e) => setCustomName(e.target.value.toLowerCase().replace(/\s/g, '-'))}
+                        placeholder="my-custom-ai"
+                        className="w-full h-8 px-3 rounded-lg bg-white/5 border border-white/[0.08] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-blue-500/50"
                       />
-                      <p className="text-[10px] text-white/30 mt-1">Auto-set from selected provider type</p>
                     </div>
-                  )}
-                  <div className={isCustom ? 'md:col-span-2' : 'md:col-span-2'}>
-                    <label className="block text-xs text-white/50 mb-1">Base URL *</label>
-                    <input
-                      type="url"
-                      value={newProvider.baseUrl}
-                      onChange={(e) => setNewProvider({ ...newProvider, baseUrl: e.target.value })}
-                      placeholder="https://api.openai.com/v1"
-                      disabled={!isCustom}
-                      className={cn(
-                        'w-full h-9 px-3 rounded-lg border text-xs focus:outline-none focus:ring-2 transition-all',
-                        isCustom
-                          ? 'bg-white/5 border-white/[0.08] text-white placeholder:text-white/25 focus:border-blue-500/50 focus:ring-blue-500/20'
-                          : 'bg-white/[0.02] border-white/[0.06] text-white/40 cursor-not-allowed'
-                      )}
-                    />
+                    <div>
+                      <label className="block text-xs text-white/50 mb-1">Display Name *</label>
+                      <input
+                        type="text"
+                        value={customDisplayName}
+                        onChange={(e) => setCustomDisplayName(e.target.value)}
+                        placeholder="My Custom AI"
+                        className="w-full h-8 px-3 rounded-lg bg-white/5 border border-white/[0.08] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-blue-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-white/50 mb-1">Base URL *</label>
+                      <input
+                        type="url"
+                        value={customBaseUrl}
+                        onChange={(e) => setCustomBaseUrl(e.target.value)}
+                        placeholder="https://api.example.com/v1"
+                        className="w-full h-8 px-3 rounded-lg bg-white/5 border border-white/[0.08] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-blue-500/50"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="block text-xs text-white/50 mb-1">Model</label>
+                        <input
+                          type="text"
+                          value={customDefaultModel}
+                          onChange={(e) => setCustomDefaultModel(e.target.value)}
+                          placeholder="model-name"
+                          className="w-full h-8 px-3 rounded-lg bg-white/5 border border-white/[0.08] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-blue-500/50"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs text-white/50 mb-1">Models (csv)</label>
+                        <input
+                          type="text"
+                          value={customModels}
+                          onChange={(e) => setCustomModels(e.target.value)}
+                          placeholder="model1, model2"
+                          className="w-full h-8 px-3 rounded-lg bg-white/5 border border-white/[0.08] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-blue-500/50"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs text-white/50 mb-1">Default Model</label>
-                    <input
-                      type="text"
-                      value={newProvider.defaultModel || ''}
-                      onChange={(e) => setNewProvider({ ...newProvider, defaultModel: e.target.value })}
-                      placeholder="gpt-4o-mini"
-                      disabled={!isCustom}
-                      className={cn(
-                        'w-full h-9 px-3 rounded-lg border text-xs focus:outline-none focus:ring-2 transition-all',
-                        isCustom
-                          ? 'bg-white/5 border-white/[0.08] text-white placeholder:text-white/25 focus:border-blue-500/50 focus:ring-blue-500/20'
-                          : 'bg-white/[0.02] border-white/[0.06] text-white/40 cursor-not-allowed'
-                      )}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-white/50 mb-1">Models (comma separated)</label>
-                    <input
-                      type="text"
-                      value={newProvider.models?.join(', ') || ''}
-                      onChange={(e) => setNewProvider({ ...newProvider, models: e.target.value.split(',').map((m) => m.trim()).filter(Boolean) })}
-                      placeholder="gpt-4o, gpt-4o-mini"
-                      disabled={!isCustom}
-                      className={cn(
-                        'w-full h-9 px-3 rounded-lg border text-xs focus:outline-none focus:ring-2 transition-all',
-                        isCustom
-                          ? 'bg-white/5 border-white/[0.08] text-white placeholder:text-white/25 focus:border-blue-500/50 focus:ring-blue-500/20'
-                          : 'bg-white/[0.02] border-white/[0.06] text-white/40 cursor-not-allowed'
-                      )}
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs text-white/50 mb-1">API Keys * (one per line for rotation)</label>
-                    <textarea
-                      value={newProvider.apiKeys.map((k) => k.key).join('\n')}
-                      onChange={(e) => {
-                        const keys = e.target.value.split('\n').filter(Boolean)
-                        setNewProvider({
-                          ...newProvider,
-                          apiKeys: keys.length > 0 ? keys.map((k) => ({ key: k })) : [{ key: '' }],
-                        })
-                      }}
-                      placeholder="sk-...&#10;sk-... (second key for rotation)"
-                      rows={3}
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/[0.08] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 resize-none"
-                    />
-                  </div>
-                </div>
+                )}
 
-                <div className="flex items-center gap-3 pt-2">
-                  <Button
-                    variant="primary"
-                    onClick={handleCreateProvider}
-                    isLoading={createMutation.isPending}
-                    disabled={!newProvider.name || !newProvider.displayName || !newProvider.baseUrl || !newProvider.apiKeys[0]?.key || !newProvider.providerType}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Create Provider
-                  </Button>
+                {!isCustom && selectedProviderType && (
+                  <div className="flex items-center gap-4 pt-2 border-t border-white/[0.06] text-xs text-white/40">
+                    {(() => {
+                      const pt = PROVIDER_TYPES.find(t => t.type === selectedProviderType)
+                      if (!pt) return null
+                      return (
+                        <>
+                          <span>{pt.baseUrl}</span>
+                          <span>·</span>
+                          <span>Models: {pt.models.join(', ')}</span>
+                          <span>·</span>
+                          <span>Default: {pt.defaultModel}</span>
+                        </>
+                      )
+                    })()}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-1">
                   <Button variant="secondary" onClick={() => setShowAddPanel(false)}>
-                    Cancel
+                    Done
                   </Button>
+                  <span className="text-[11px] text-white/30">
+                    Keys are automatically added to the same provider for rotation
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -401,11 +388,7 @@ export function ProvidersPage() {
       </AnimatePresence>
 
       {/* Provider List */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="space-y-3"
-      >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
         {loadingStatus || loadingConfigs ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-32 w-full bg-white/5" />
@@ -414,13 +397,14 @@ export function ProvidersPage() {
           <div className="flex flex-col items-center justify-center py-16 text-white/30">
             <Cpu className="w-12 h-12 mb-3" />
             <p className="text-sm">No providers configured</p>
-            <p className="text-xs mt-1">Click "Add Provider" to get started</p>
+            <p className="text-xs mt-1">Click "Add API Key" and select a provider type</p>
           </div>
         ) : (
           allProviderNames.map((name) => {
             const status = providerStatuses.find((p: any) => p.name === name)
             const config = providerConfigs.find((c) => c.name === name)
             const isExpanded = expandedConfigs.has(name)
+            const keysCount = config?.apiKeys.length || 0
 
             return (
               <Card key={name} className="group hover:border-white/[0.12] transition-all duration-300">
@@ -451,10 +435,10 @@ export function ProvidersPage() {
                               {config.isEnabled ? 'Enabled' : 'Disabled'}
                             </Badge>
                           )}
+                          <Badge variant="info">{keysCount} key(s)</Badge>
                         </div>
                         <p className="text-xs text-white/40 mt-0.5">
-                          {config?.baseUrl || 'Not configured in DB'}
-                          {config && ` · ${config.apiKeys.length} key(s)`}
+                          {config?.baseUrl || 'Not configured'}
                           {status && status.latencyMs > 0 && ` · ${status.latencyMs}ms`}
                         </p>
                       </div>
@@ -519,7 +503,9 @@ export function ProvidersPage() {
                           {/* API Keys */}
                           <div>
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-xs font-medium text-white/50 uppercase tracking-wider">API Keys (Rotation)</h4>
+                              <h4 className="text-xs font-medium text-white/50 uppercase tracking-wider">
+                                API Keys (Rotation) — {keysCount} keys
+                              </h4>
                             </div>
                             <div className="space-y-2">
                               {config.apiKeys.map((entry) => (
@@ -569,13 +555,19 @@ export function ProvidersPage() {
                               ))}
                             </div>
 
-                            {/* Add Key */}
+                            {/* Add Key inline */}
                             <div className="flex gap-2 mt-2">
                               <input
-                                type="password"
+                                type="text"
                                 value={newKeyInputs[name] || ''}
                                 onChange={(e) => setNewKeyInputs({ ...newKeyInputs, [name]: e.target.value })}
-                                placeholder="Add another API key for rotation..."
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && newKeyInputs[name]?.trim()) {
+                                    addKeyMutation.mutate({ name, key: newKeyInputs[name].trim() })
+                                    setNewKeyInputs({ ...newKeyInputs, [name]: '' })
+                                  }
+                                }}
+                                placeholder="Paste another key for rotation..."
                                 className="flex-1 h-8 px-3 rounded-lg bg-white/5 border border-white/[0.08] text-white text-xs placeholder:text-white/25 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20"
                               />
                               <button

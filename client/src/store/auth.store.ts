@@ -14,14 +14,8 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user: {
-        id: 'dev-user',
-        email: 'suveshpagam07@gmail.com',
-        name: 'Dev User',
-        role: 'admin',
-        createdAt: new Date().toISOString(),
-      },
-      isAuthenticated: true,
+      user: null,
+      isAuthenticated: false,
       isLoading: false,
       setUser: (user) => set({ user, isAuthenticated: !!user, isLoading: false }),
       setLoading: (isLoading) => set({ isLoading }),
